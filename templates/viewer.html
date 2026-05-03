@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ filename }} - 图片查看器</title>
+    <style>
+        /* 主题颜色变量定义 */
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: white;
+            --bg-tertiary: #e8e8e8;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --border-color: #ddd;
+            --control-bg: rgba(255, 255, 255, 0.9);
+            --control-btn-bg: #e0e0e0;
+            --control-btn-hover: #d0d0d0;
+            --nav-bg: rgba(255, 255, 255, 0.7);
+            --nav-hover: rgba(255, 255, 255, 0.9);
+            --accent-color: #667eea;
+            --accent-hover: #5568d3;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a1a;
+                --bg-secondary: #2d2d2d;
+                --bg-tertiary: #3d3d3d;
+                --text-primary: #fff;
+                --text-secondary: #ccc;
+                --border-color: #3d3d3d;
+                --control-bg: rgba(0, 0, 0, 0.7);
+                --control-btn-bg: #444;
+                --control-btn-hover: #555;
+                --nav-bg: rgba(0, 0, 0, 0.5);
+                --nav-hover: rgba(0, 0, 0, 0.8);
+                --accent-color: #667eea;
+                --accent-hover: #7b8ff0;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            margin-right: 20px;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .viewer-container {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 150px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .image-wrapper {
+            position: relative;
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #currentImage {
+            max-width: 100%;
+            max-height: calc(100vh - 150px);
+            object-fit: contain;
+            transition: transform 0.3s ease;
+            cursor: grab;
+            user-select: none;
+        }
+
+        #currentImage:active {
+            cursor: grabbing;
+        }
+
+        .nav-button {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--nav-bg);
+            color: var(--text-primary);
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .nav-button:hover {
+            background: var(--nav-hover);
+        }
+
+        .nav-button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .nav-button.prev {
+            left: 20px;
+        }
+
+        .nav-button.next {
+            right: 20px;
+        }
+
+        .playlist {
+            background: var(--bg-secondary);
+            padding: 15px 20px;
+            max-height: 80px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .playlist-item {
+            display: inline-block;
+            padding: 8px 12px;
+            margin-right: 10px;
+            background: var(--bg-tertiary);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+
+        .playlist-item:hover {
+            background: var(--border-color);
+        }
+
+        .playlist-item.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .nav-button {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+        }
+
+        /* 导航按钮隐藏状态（点击图片切换） */
+        body.nav-hidden .nav-button {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 全屏模式样式 */
+        .fullscreen-mode .header,
+        .fullscreen-mode .playlist {
+            display: none !important;
+        }
+
+        .fullscreen-mode .viewer-container {
+            height: 100vh;
+        }
+
+        .fullscreen-mode #currentImage {
+            max-height: 100vh;
+        }
+
+        /* 全屏模式下的浮动工具栏 */
+        .fullscreen-toolbar {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            gap: 10px;
+        }
+
+        .fullscreen-mode .fullscreen-toolbar {
+            display: flex;
+        }
+
+        .fullscreen-mode.controls-hidden .fullscreen-toolbar,
+        .fullscreen-mode.controls-hidden .nav-button {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .fullscreen-toolbar .btn {
+            padding: 12px 20px;
+            font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        /* 全屏提示 */
+        .fullscreen-hint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .fullscreen-hint.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .fullscreen-mode .fullscreen-toolbar,
+        .fullscreen-hint {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ filename }}</h1>
+        <div class="header-buttons">
+            <a href="{{ url_for('download', filepath=filepath) }}" class="btn btn-primary">下载</a>
+            <a href="{{ url_for('index', subpath=filepath.rsplit('/', 1)[0] if '/' in filepath else '') }}" class="btn btn-secondary">返回</a>
+        </div>
+    </div>
+
+    <div class="viewer-container" id="viewerContainer">
+        <button class="nav-button prev" id="prevBtn" onclick="previousImage()">‹</button>
+
+        <div class="image-wrapper">
+            <img id="currentImage" src="{{ url_for('stream', filepath=filepath) }}" alt="{{ filename }}">
+        </div>
+
+        <button class="nav-button next" id="nextBtn" onclick="nextImage()">›</button>
+    </div>
+
+    <div class="playlist">
+        {% for item in playlist %}
+            <span class="playlist-item {% if loop.index0 == current_index %}active{% endif %}"
+                  onclick="loadImage({{ loop.index0 }})">
+                {{ item.name }}
+            </span>
+        {% endfor %}
+    </div>
+
+    <!-- 全屏模式下的浮动工具栏 -->
+    <div class="fullscreen-toolbar" id="fullscreenToolbar" onclick="event.stopPropagation();">
+        <button class="btn btn-primary" onclick="downloadCurrentImage()">下载</button>
+        <button class="btn btn-secondary" onclick="exitFullscreen()">返回</button>
+    </div>
+
+    <!-- 全屏提示 -->
+    <div class="fullscreen-hint" id="fullscreenHint">点击屏幕显示/隐藏按钮</div>
+
+    <script>
+        const playlist = {{ playlist | tojson }};
+        let currentIndex = {{ current_index }};
+
+        const img = document.getElementById('currentImage');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+
+        function updateImage() {
+            const item = playlist[currentIndex];
+            img.src = `/stream/${item.path}`;
+            document.querySelector('.header h1').textContent = item.name;
+
+            // 更新播放列表高亮
+            document.querySelectorAll('.playlist-item').forEach((el, idx) => {
+                el.classList.toggle('active', idx === currentIndex);
+            });
+
+            // 更新导航按钮状态
+            prevBtn.disabled = currentIndex === 0;
+            nextBtn.disabled = currentIndex === playlist.length - 1;
+        }
+
+        function loadImage(index) {
+            if (index >= 0 && index < playlist.length) {
+                currentIndex = index;
+                updateImage();
+            }
+        }
+
+        function previousImage() {
+            if (currentIndex > 0) {
+                loadImage(currentIndex - 1);
+            }
+        }
+
+        function nextImage() {
+            if (currentIndex < playlist.length - 1) {
+                loadImage(currentIndex + 1);
+            }
+        }
+
+        let controlsHidden = false;
+        let isFullscreen = false;
+        const fullscreenHint = document.getElementById('fullscreenHint');
+
+        function exitFullscreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                // 如果不在全屏模式，返回上一页
+                window.history.back();
+            }
+        }
+
+        // 检测是否是 Android App
+        const isAndroidApp = typeof Android !== 'undefined' && Android.downloadFile;
+
+        // 下载当前图片
+        function downloadCurrentImage() {
+            const item = playlist[currentIndex];
+            const downloadUrl = `/download/${item.path}`;
+            const filename = item.name;
+
+            if (isAndroidApp) {
+                // Android App: 使用 JavaScript Bridge
+                try {
+                    Android.downloadFile(window.location.origin + downloadUrl, filename);
+                    console.log('Android download triggered:', filename);
+                } catch (e) {
+                    console.error('Android download failed:', e);
+                    // 回退到普通下载
+                    triggerDownload(downloadUrl, filename);
+                }
+            } else {
+                // 浏览器: 使用普通下载
+                triggerDownload(downloadUrl, filename);
+            }
+        }
+
+        // 触发下载
+        function triggerDownload(url, filename) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 切换控件显示/隐藏
+        function toggleControlsVisibility() {
+            controlsHidden = !controlsHidden;
+            if (controlsHidden) {
+                document.body.classList.add('controls-hidden');
+            } else {
+                document.body.classList.remove('controls-hidden');
+            }
+        }
+
+        // 显示全屏提示
+        function showFullscreenHint() {
+            fullscreenHint.classList.add('show');
+            setTimeout(() => {
+                fullscreenHint.classList.remove('show');
+            }, 2000);
+        }
+
+        // 监听全屏状态变化（兼容不同浏览器）
+        function handleFullscreenChange() {
+            isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+
+            if (isFullscreen) {
+                document.body.classList.add('fullscreen-mode');
+                document.body.classList.remove('nav-hidden'); // 进入全屏时重置导航按钮状态
+                showFullscreenHint();
+                // 默认显示控件
+                controlsHidden = false;
+                document.body.classList.remove('controls-hidden');
+            } else {
+                document.body.classList.remove('fullscreen-mode');
+                document.body.classList.remove('controls-hidden');
+                document.body.classList.remove('nav-hidden'); // 退出全屏时重置导航按钮状态
+                controlsHidden = false;
+            }
+        }
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+
+        // 点击切换控件显示（只在全屏模式下生效）
+        let clickStartX = 0;
+        let clickStartY = 0;
+
+        document.addEventListener('mousedown', function(e) {
+            clickStartX = e.clientX;
+            clickStartY = e.clientY;
+        });
+
+        document.addEventListener('click', function(e) {
+            // 只在全屏模式下生效
+            if (!isFullscreen) return;
+
+            // 如果点击的是工具栏，不处理
+            if (e.target.closest('.fullscreen-toolbar')) return;
+
+            toggleControlsVisibility();
+        });
+
+        // 点击图片切换导航按钮显示/隐藏（非全屏模式）
+        img.addEventListener('click', function(e) {
+            if (isFullscreen) return; // 全屏模式由 document click handler 处理
+            document.body.classList.toggle('nav-hidden');
+        });
+
+        // 双击图片进入全屏
+        img.addEventListener('dblclick', function() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            }
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft':
+                    previousImage();
+                    break;
+                case 'ArrowRight':
+                    nextImage();
+                    break;
+                case 'Escape':
+                    if (isFullscreen) exitFullscreen();
+                    break;
+            }
+        });
+
+        // 初始化按钮状态
+        updateImage();
+    </script>
+</body>
+</html>

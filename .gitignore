@@ -1,0 +1,4 @@
+.env
+.claude
+androidApp/app/build
+androidApp/.gradle

@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户管理 - 文件服务器</title>
+    <style>
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-card: white;
+            --text-primary: #333;
+            --text-secondary: #555;
+            --text-muted: #999;
+            --border-color: #e0e0e0;
+            --hover-bg: #f9f9f9;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --accent-color: #667eea;
+            --accent-hover: #5568d3;
+            --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --danger-color: #dc3545;
+            --danger-hover: #c82333;
+            --success-color: #28a745;
+            --input-bg: white;
+            --modal-overlay: rgba(0, 0, 0, 0.5);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a1a;
+                --bg-card: #2a2a2a;
+                --text-primary: #fff;
+                --text-secondary: #ccc;
+                --text-muted: #999;
+                --border-color: #4a4a4a;
+                --hover-bg: #3a3a3a;
+                --shadow-color: rgba(0, 0, 0, 0.3);
+                --input-bg: #3a3a3a;
+                --modal-overlay: rgba(0, 0, 0, 0.7);
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .header {
+            background: var(--bg-card);
+            box-shadow: 0 2px 4px var(--shadow-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .header-nav a, .header-nav .nav-link {
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .nav-browse {
+            background: var(--accent-gradient);
+            color: white;
+        }
+
+        .nav-browse:hover { opacity: 0.9; }
+
+        .nav-logout {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .nav-logout:hover { background: var(--danger-hover); }
+
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .alert {
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px var(--shadow-color);
+        }
+
+        .card h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 14px;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+        }
+
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover { background: var(--danger-hover); }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--accent-color);
+            border: 2px solid var(--accent-color);
+        }
+
+        .btn-outline:hover { background: rgba(102, 126, 234, 0.1); }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px 16px;
+            background: var(--hover-bg);
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        tr:hover td {
+            background: var(--hover-bg);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-admin {
+            background: #667eea;
+            color: white;
+        }
+
+        .badge-user {
+            background: var(--hover-bg);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .actions-cell {
+            display: flex;
+            gap: 8px;
+        }
+
+        .text-muted {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        /* 弹窗样式 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--modal-overlay);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 30px;
+            width: 90%;
+            max-width: 420px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            font-size: 18px;
+        }
+
+        .modal .form-group { margin-bottom: 16px; }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row { flex-direction: column; }
+            .actions-cell { flex-direction: column; }
+            .header { flex-wrap: wrap; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>👥 用户管理</h1>
+        <div class="header-nav">
+            <a href="{{ url_for('index') }}" class="nav-browse">📁 文件浏览</a>
+            <a href="{{ url_for('logout') }}" class="nav-logout">退出登录</a>
+        </div>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 添加用户 -->
+        <div class="card">
+            <h2>添加用户</h2>
+            <form method="POST" action="{{ url_for('admin_add_user') }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <input type="text" id="username" name="username" required
+                               placeholder="请输入用户名" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">密码</label>
+                        <input type="password" id="password" name="password" required
+                               placeholder="至少6位密码" autocomplete="new-password">
+                    </div>
+                    <div class="form-group" style="flex: 0 0 auto;">
+                        <label>&nbsp;</label>
+                        <button type="submit" class="btn btn-primary">创建用户</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 用户列表 -->
+        <div class="card">
+            <h2>用户列表 ({{ users|length }})</h2>
+            {% if users %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>用户名</th>
+                            <th>密码</th>
+                            <th>角色</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                            <tr>
+                                <td>{{ user.id }}</td>
+                                <td>{{ user.username }}</td>
+                                <td style="font-family: monospace;">{{ user.password }}</td>
+                                <td>
+                                    {% if user.is_admin %}
+                                        <span class="badge badge-admin">管理员</span>
+                                    {% else %}
+                                        <span class="badge badge-user">普通用户</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted">{{ user.created_at[:19] }}</td>
+                                <td>
+                                    <div class="actions-cell">
+                                        {% if not user.is_admin %}
+                                            <button class="btn btn-outline btn-sm"
+                                                    onclick="showResetPwdModal({{ user.id }}, '{{ user.username }}')">
+                                                重置密码
+                                            </button>
+                                            <button class="btn btn-danger btn-sm"
+                                                    onclick="showDeleteModal({{ user.id }}, '{{ user.username }}')">
+                                                删除
+                                            </button>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="empty-state">
+                    <p>暂无用户</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <h3>确认删除</h3>
+            <p>确定要删除用户 <strong id="deleteUsername"></strong> 吗？</p>
+            <p class="text-muted" style="margin-top: 8px;">此操作不可撤销。</p>
+            <form method="POST" action="{{ url_for('admin_delete_user') }}" id="deleteForm">
+                <input type="hidden" name="user_id" id="deleteUserId">
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('deleteModal')">取消</button>
+                    <button type="submit" class="btn btn-danger">确认删除</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 重置密码弹窗 -->
+    <div class="modal-overlay" id="resetPwdModal">
+        <div class="modal">
+            <h3>重置密码</h3>
+            <p style="margin-bottom: 12px;">为用户 <strong id="resetUsername"></strong> 设置新密码</p>
+            <form method="POST" action="{{ url_for('admin_reset_password') }}" id="resetPwdForm">
+                <input type="hidden" name="user_id" id="resetUserId">
+                <div class="form-group">
+                    <label for="new_password">新密码</label>
+                    <input type="password" id="new_password" name="new_password" required
+                           placeholder="至少6位密码" autocomplete="new-password">
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('resetPwdModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">确认重置</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showDeleteModal(userId, username) {
+            document.getElementById('deleteUserId').value = userId;
+            document.getElementById('deleteUsername').textContent = username;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function showResetPwdModal(userId, username) {
+            document.getElementById('resetUserId').value = userId;
+            document.getElementById('resetUsername').textContent = username;
+            document.getElementById('resetPwdModal').classList.add('active');
+            document.getElementById('new_password').value = '';
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        // 点击弹窗遮罩关闭
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) closeModal(this.id);
+            });
+        });
+
+        // ESC 关闭弹窗
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+            }
+        });
+    </script>
+</body>
+</html>
