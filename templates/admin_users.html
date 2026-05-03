@@ -359,6 +359,8 @@
                             <th>用户名</th>
                             <th>密码</th>
                             <th>角色</th>
+                            <th>当前设备</th>
+                            <th>最大上限</th>
                             <th>创建时间</th>
                             <th>操作</th>
                         </tr>
@@ -374,6 +376,26 @@
                                         <span class="badge badge-admin">管理员</span>
                                     {% else %}
                                         <span class="badge badge-user">普通用户</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.is_admin %}
+                                        <span class="text-muted">—</span>
+                                    {% else %}
+                                        <span style="font-weight: 600; color: {{ 'var(--danger-color)' if user_sessions.get(user.username, 0) > user.max_devices else 'var(--success-color)' }}">
+                                            {{ user_sessions.get(user.username, 0) }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.is_admin %}
+                                        <span class="badge badge-admin">无限制</span>
+                                    {% else %}
+                                        <span style="cursor: pointer; border-bottom: 1px dashed var(--text-secondary);"
+                                              onclick="showMaxDevicesModal({{ user.id }}, '{{ user.username }}', {{ user.max_devices }})"
+                                              title="点击修改">
+                                            {{ user.max_devices }} 台
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td class="text-muted">{{ user.created_at[:19] }}</td>
@@ -441,6 +463,29 @@
         </div>
     </div>
 
+    <!-- 设置最大设备数弹窗 -->
+    <div class="modal-overlay" id="maxDevicesModal">
+        <div class="modal">
+            <h3>设置设备上限</h3>
+            <p style="margin-bottom: 12px;">为用户 <strong id="maxDevicesUsername"></strong> 设置最大设备数</p>
+            <form method="POST" action="{{ url_for('admin_set_max_devices') }}" id="maxDevicesForm">
+                <input type="hidden" name="user_id" id="maxDevicesUserId">
+                <div class="form-group">
+                    <label for="max_devices">最大设备数</label>
+                    <input type="number" id="max_devices" name="max_devices" required
+                           min="1" max="100" value="3" autocomplete="off">
+                </div>
+                <p class="text-muted" style="margin-top: 8px; font-size: 13px;">
+                    当前在线设备数超出上限时，最早登录的设备将被强制退出。
+                </p>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('maxDevicesModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">确认</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         function showDeleteModal(userId, username) {
             document.getElementById('deleteUserId').value = userId;
@@ -453,6 +498,13 @@
             document.getElementById('resetUsername').textContent = username;
             document.getElementById('resetPwdModal').classList.add('active');
             document.getElementById('new_password').value = '';
+        }
+
+        function showMaxDevicesModal(userId, username, currentMax) {
+            document.getElementById('maxDevicesUserId').value = userId;
+            document.getElementById('maxDevicesUsername').textContent = username;
+            document.getElementById('max_devices').value = currentMax;
+            document.getElementById('maxDevicesModal').classList.add('active');
         }
 
         function closeModal(id) {

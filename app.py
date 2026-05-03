@@ -61,15 +61,36 @@ def init_db():
         created_at TEXT NOT NULL
     )''')
 
+    # 迁移：添加 max_devices 列（如果不存在）
+    cursor = db.execute("PRAGMA table_info(users)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'max_devices' not in columns:
+        db.execute('ALTER TABLE users ADD COLUMN max_devices INTEGER NOT NULL DEFAULT 3')
+
+    # 创建会话表
+    db.execute('''CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
+        device_info TEXT DEFAULT '',
+        ip_address TEXT DEFAULT '',
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        last_active TEXT NOT NULL
+    )''')
+
     # 确保管理员账号存在
     admin = db.execute('SELECT id FROM users WHERE username = ?',
                        (CONFIG['ADMIN_USERNAME'],)).fetchone()
     if not admin:
-        db.execute('INSERT INTO users (username, password, is_admin, created_at) VALUES (?, ?, 1, ?)',
+        db.execute('INSERT INTO users (username, password, is_admin, created_at, max_devices) VALUES (?, ?, 1, ?, -1)',
                    (CONFIG['ADMIN_USERNAME'],
                     CONFIG['ADMIN_PASSWORD'],
                     datetime.now().isoformat()))
         print(f"已创建管理员账号: {CONFIG['ADMIN_USERNAME']}")
+    else:
+        # 确保管理员的 max_devices 为 -1（无限制）
+        db.execute('UPDATE users SET max_devices = -1 WHERE is_admin = 1 AND max_devices != -1')
     db.commit()
     db.close()
 
@@ -107,6 +128,64 @@ def verify_stream_token(token):
     return False
 
 
+# ============ 会话管理 ============
+
+def create_session(db, username, device_info='', ip_address=''):
+    """创建新的会话记录，返回 session_id"""
+    session_id = secrets.token_urlsafe(32)
+    now = datetime.now().isoformat()
+    db.execute(
+        'INSERT INTO sessions (session_id, username, device_info, ip_address, created_at, last_active) '
+        'VALUES (?, ?, ?, ?, ?, ?)',
+        (session_id, username, device_info, ip_address, now, now)
+    )
+    db.commit()
+    return session_id
+
+
+def get_active_session_count(db, username):
+    """获取用户当前活跃会话数"""
+    row = db.execute(
+        'SELECT COUNT(*) FROM sessions WHERE username = ? AND is_active = 1',
+        (username,)
+    ).fetchone()
+    return row[0]
+
+
+def get_active_sessions(db, username):
+    """获取用户所有活跃会话"""
+    return db.execute(
+        'SELECT * FROM sessions WHERE username = ? AND is_active = 1 ORDER BY created_at DESC',
+        (username,)
+    ).fetchall()
+
+
+def kick_oldest_sessions(db, username, count):
+    """踢出用户最旧的 N 个会话（设为不活跃）"""
+    if count <= 0:
+        return
+    oldest = db.execute(
+        'SELECT session_id FROM sessions WHERE username = ? AND is_active = 1 '
+        'ORDER BY created_at ASC LIMIT ?',
+        (username, count)
+    ).fetchall()
+    for row in oldest:
+        db.execute(
+            'UPDATE sessions SET is_active = 0 WHERE session_id = ?',
+            (row['session_id'],)
+        )
+    db.commit()
+
+
+def deactivate_session(db, session_id):
+    """停用指定会话"""
+    db.execute(
+        'UPDATE sessions SET is_active = 0 WHERE session_id = ?',
+        (session_id,)
+    )
+    db.commit()
+
+
 def login_required(f):
     """登录验证装饰器"""
     @wraps(f)
@@ -127,6 +206,36 @@ def admin_required(f):
             abort(403)
         return f(*args, **kwargs)
     return decorated_function
+
+
+@app.before_request
+def validate_session():
+    """在每个请求前验证当前会话是否仍有效（未被踢出）"""
+    # 跳过不需要会话验证的端点
+    if request.endpoint in ('login', 'stream', 'static'):
+        return
+
+    if session.get('logged_in') and session.get('session_token'):
+        db = get_db()
+        sess = db.execute(
+            'SELECT is_active FROM sessions WHERE session_id = ? AND username = ?',
+            (session['session_token'], session['username'])
+        ).fetchone()
+
+        if not sess or not sess['is_active']:
+            # 会话已被踢出或不存在，清除登录状态
+            session.pop('logged_in', None)
+            session.pop('username', None)
+            session.pop('is_admin', None)
+            session.pop('session_token', None)
+            flash('您的账号已在其他设备登录，当前会话已被强制退出。', 'error')
+        else:
+            # 更新最后活跃时间
+            db.execute(
+                'UPDATE sessions SET last_active = ? WHERE session_id = ?',
+                (datetime.now().isoformat(), session['session_token'])
+            )
+            db.commit()
 
 
 def get_safe_path(relative_path):
@@ -209,10 +318,25 @@ def login():
         user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
 
         if user and user['password'] == password:
+            # 非管理员：检查设备数上限
+            max_devices = user['max_devices']
+            if not user['is_admin'] and max_devices > 0:
+                active_count = get_active_session_count(db, username)
+                if active_count >= max_devices:
+                    # 超出上限，踢出最旧的设备
+                    to_kick = active_count - max_devices + 1
+                    kick_oldest_sessions(db, username, to_kick)
+
+            # 创建新会话
+            device_info = request.user_agent.string if request.user_agent else ''
+            ip_address = request.remote_addr or ''
+            session_token = create_session(db, username, device_info, ip_address)
+
             session.permanent = True
             session['logged_in'] = True
             session['username'] = username
             session['is_admin'] = bool(user['is_admin'])
+            session['session_token'] = session_token
 
             generate_stream_token(username)
 
@@ -227,6 +351,10 @@ def login():
 @app.route('/logout')
 def logout():
     """登出"""
+    session_token = session.get('session_token')
+    if session_token:
+        db = get_db()
+        deactivate_session(db, session_token)
     session.clear()
     return redirect(url_for('login'))
 
@@ -409,8 +537,14 @@ def stream(filepath):
 def admin_users():
     """用户管理页面"""
     db = get_db()
-    users = db.execute('SELECT id, username, password, is_admin, created_at FROM users ORDER BY id').fetchall()
-    return render_template('admin_users.html', users=users)
+    users = db.execute(
+        'SELECT id, username, password, is_admin, max_devices, created_at FROM users ORDER BY id'
+    ).fetchall()
+    # 获取每个用户的活跃设备数
+    user_sessions = {}
+    for user in users:
+        user_sessions[user['username']] = get_active_session_count(db, user['username'])
+    return render_template('admin_users.html', users=users, user_sessions=user_sessions)
 
 
 @app.route('/admin/users/add', methods=['POST'])
@@ -459,6 +593,8 @@ def admin_delete_user():
         return redirect(url_for('admin_users'))
 
     db.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    # 同时清理该用户的会话记录
+    db.execute('DELETE FROM sessions WHERE username = ?', (user['username'],))
     db.commit()
     flash(f'用户 {user["username"]} 已删除', 'success')
     return redirect(url_for('admin_users'))
@@ -486,6 +622,39 @@ def admin_reset_password():
                (new_password, user_id))
     db.commit()
     flash(f'用户 {user["username"]} 的密码已重置', 'success')
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/users/set-max-devices', methods=['POST'])
+@admin_required
+def admin_set_max_devices():
+    """设置用户的最大设备数"""
+    user_id = request.form.get('user_id')
+    max_devices = request.form.get('max_devices', '').strip()
+
+    db = get_db()
+    user = db.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+
+    if not user:
+        flash('用户不存在', 'error')
+        return redirect(url_for('admin_users'))
+
+    if user['is_admin']:
+        flash('不能修改管理员的设备限制', 'error')
+        return redirect(url_for('admin_users'))
+
+    try:
+        max_devices = int(max_devices)
+        if max_devices < 1:
+            flash('最大设备数至少为 1', 'error')
+            return redirect(url_for('admin_users'))
+    except ValueError:
+        flash('请输入有效的数字', 'error')
+        return redirect(url_for('admin_users'))
+
+    db.execute('UPDATE users SET max_devices = ? WHERE id = ?', (max_devices, user_id))
+    db.commit()
+    flash(f'用户 {user["username"]} 的最大设备数已设置为 {max_devices}', 'success')
     return redirect(url_for('admin_users'))
 
 
