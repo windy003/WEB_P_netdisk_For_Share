@@ -2,3 +2,4 @@
 .claude
 androidApp/app/build
 androidApp/.gradle
+users.db
