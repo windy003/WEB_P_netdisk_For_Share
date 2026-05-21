@@ -379,17 +379,13 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if user.is_admin %}
-                                        <span class="text-muted">—</span>
-                                    {% else %}
-                                        <span style="font-weight: 600; color: {{ 'var(--danger-color)' if user_sessions.get(user.username, 0) > user.max_devices else 'var(--success-color)' }}">
-                                            {{ user_sessions.get(user.username, 0) }}
-                                        </span>
-                                    {% endif %}
+                                    <span style="font-weight: 600; color: {{ 'var(--danger-color)' if user_sessions.get(user.username, 0) > user.max_devices else 'var(--success-color)' }}">
+                                        {{ user_sessions.get(user.username, 0) }}
+                                    </span>
                                 </td>
                                 <td>
                                     {% if user.is_admin %}
-                                        <span class="badge badge-admin">无限制</span>
+                                        <span>{{ user.max_devices }} 台</span>
                                     {% else %}
                                         <span style="cursor: pointer; border-bottom: 1px dashed var(--text-secondary);"
                                               onclick="showMaxDevicesModal({{ user.id }}, '{{ user.username }}', {{ user.max_devices }})"

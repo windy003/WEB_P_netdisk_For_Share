@@ -83,14 +83,14 @@ def init_db():
     admin = db.execute('SELECT id FROM users WHERE username = ?',
                        (CONFIG['ADMIN_USERNAME'],)).fetchone()
     if not admin:
-        db.execute('INSERT INTO users (username, password, is_admin, created_at, max_devices) VALUES (?, ?, 1, ?, -1)',
+        db.execute('INSERT INTO users (username, password, is_admin, created_at, max_devices) VALUES (?, ?, 1, ?, 1)',
                    (CONFIG['ADMIN_USERNAME'],
                     CONFIG['ADMIN_PASSWORD'],
                     datetime.now().isoformat()))
         print(f"已创建管理员账号: {CONFIG['ADMIN_USERNAME']}")
     else:
-        # 确保管理员的 max_devices 为 -1（无限制）
-        db.execute('UPDATE users SET max_devices = -1 WHERE is_admin = 1 AND max_devices != -1')
+        # 确保管理员的 max_devices 为 1
+        db.execute('UPDATE users SET max_devices = 1 WHERE is_admin = 1 AND max_devices != 1')
     db.commit()
     db.close()
 
@@ -318,9 +318,9 @@ def login():
         user = db.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
 
         if user and user['password'] == password:
-            # 非管理员：检查设备数上限
+            # 检查设备数上限
             max_devices = user['max_devices']
-            if not user['is_admin'] and max_devices > 0:
+            if max_devices > 0:
                 active_count = get_active_session_count(db, username)
                 if active_count >= max_devices:
                     # 超出上限，踢出最旧的设备
