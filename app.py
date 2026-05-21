@@ -65,7 +65,7 @@ def init_db():
     cursor = db.execute("PRAGMA table_info(users)")
     columns = [col[1] for col in cursor.fetchall()]
     if 'max_devices' not in columns:
-        db.execute('ALTER TABLE users ADD COLUMN max_devices INTEGER NOT NULL DEFAULT 3')
+        db.execute('ALTER TABLE users ADD COLUMN max_devices INTEGER NOT NULL DEFAULT 1')
 
     # 创建会话表
     db.execute('''CREATE TABLE IF NOT EXISTS sessions (
@@ -88,9 +88,6 @@ def init_db():
                     CONFIG['ADMIN_PASSWORD'],
                     datetime.now().isoformat()))
         print(f"已创建管理员账号: {CONFIG['ADMIN_USERNAME']}")
-    else:
-        # 确保管理员的 max_devices 为 1
-        db.execute('UPDATE users SET max_devices = 1 WHERE is_admin = 1 AND max_devices != 1')
     db.commit()
     db.close()
 
@@ -637,10 +634,6 @@ def admin_set_max_devices():
 
     if not user:
         flash('用户不存在', 'error')
-        return redirect(url_for('admin_users'))
-
-    if user['is_admin']:
-        flash('不能修改管理员的设备限制', 'error')
         return redirect(url_for('admin_users'))
 
     try:

@@ -300,10 +300,127 @@
             margin-top: 20px;
         }
 
-        @media (max-width: 600px) {
-            .form-row { flex-direction: column; }
-            .actions-cell { flex-direction: column; }
-            .header { flex-wrap: wrap; gap: 10px; }
+        @media (max-width: 700px) {
+            body { -webkit-tap-highlight-color: transparent; }
+
+            .header {
+                padding: 12px 14px;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .header h1 {
+                font-size: 18px;
+                flex: 1 1 100%;
+            }
+            .header-nav {
+                width: 100%;
+                gap: 8px;
+            }
+            .header-nav a {
+                flex: 1;
+                text-align: center;
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+
+            .container {
+                margin: 12px auto;
+                padding: 0 12px;
+            }
+
+            .card {
+                padding: 16px;
+                border-radius: 10px;
+            }
+            .card h2 {
+                font-size: 17px;
+                margin-bottom: 14px;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+            }
+            .form-row .form-group {
+                flex: 1 1 auto !important;
+                min-width: 0;
+                width: 100%;
+            }
+            .form-row .btn {
+                width: 100%;
+                padding: 12px;
+            }
+            .label-spacer { display: none; }
+
+            /* 表格转卡片式 */
+            table, thead, tbody, tr, td { display: block; width: 100%; }
+            thead { display: none; }
+
+            tr {
+                background: var(--hover-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 10px;
+                padding: 12px 14px;
+                margin-bottom: 12px;
+            }
+            tr:hover td { background: transparent; }
+
+            td {
+                border-bottom: 1px dashed var(--border-color);
+                padding: 8px 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+                font-size: 14px;
+                word-break: break-all;
+            }
+            td:last-child { border-bottom: none; }
+            td:before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--text-secondary);
+                font-size: 13px;
+                flex-shrink: 0;
+            }
+            td:not([data-label]):before { content: none; }
+
+            /* 操作单元格独立成行,按钮撑满 */
+            td.cell-actions {
+                flex-direction: column;
+                align-items: stretch;
+                padding-top: 10px;
+            }
+            td.cell-actions:before {
+                margin-bottom: 8px;
+            }
+            .actions-cell {
+                flex-direction: row;
+                gap: 8px;
+            }
+            .actions-cell .btn {
+                flex: 1;
+                padding: 10px 12px;
+                font-size: 13px;
+            }
+
+            /* 弹窗 */
+            .modal {
+                padding: 20px;
+                width: 92%;
+                max-width: 92%;
+                border-radius: 12px;
+            }
+            .modal h3 { font-size: 17px; margin-bottom: 14px; }
+            .modal-buttons {
+                flex-direction: column-reverse;
+                gap: 8px;
+            }
+            .modal-buttons .btn {
+                width: 100%;
+                padding: 12px;
+            }
         }
     </style>
 </head>
@@ -340,8 +457,8 @@
                         <input type="password" id="password" name="password" required
                                placeholder="至少6位密码" autocomplete="new-password">
                     </div>
-                    <div class="form-group" style="flex: 0 0 auto;">
-                        <label>&nbsp;</label>
+                    <div class="form-group form-group-submit" style="flex: 0 0 auto;">
+                        <label class="label-spacer">&nbsp;</label>
                         <button type="submit" class="btn btn-primary">创建用户</button>
                     </div>
                 </div>
@@ -368,34 +485,30 @@
                     <tbody>
                         {% for user in users %}
                             <tr>
-                                <td>{{ user.id }}</td>
-                                <td>{{ user.username }}</td>
-                                <td style="font-family: monospace;">{{ user.password }}</td>
-                                <td>
+                                <td data-label="ID">{{ user.id }}</td>
+                                <td data-label="用户名">{{ user.username }}</td>
+                                <td data-label="密码" style="font-family: monospace;">{{ user.password }}</td>
+                                <td data-label="角色">
                                     {% if user.is_admin %}
                                         <span class="badge badge-admin">管理员</span>
                                     {% else %}
                                         <span class="badge badge-user">普通用户</span>
                                     {% endif %}
                                 </td>
-                                <td>
+                                <td data-label="当前设备">
                                     <span style="font-weight: 600; color: {{ 'var(--danger-color)' if user_sessions.get(user.username, 0) > user.max_devices else 'var(--success-color)' }}">
                                         {{ user_sessions.get(user.username, 0) }}
                                     </span>
                                 </td>
-                                <td>
-                                    {% if user.is_admin %}
-                                        <span>{{ user.max_devices }} 台</span>
-                                    {% else %}
-                                        <span style="cursor: pointer; border-bottom: 1px dashed var(--text-secondary);"
-                                              onclick="showMaxDevicesModal({{ user.id }}, '{{ user.username }}', {{ user.max_devices }})"
-                                              title="点击修改">
-                                            {{ user.max_devices }} 台
-                                        </span>
-                                    {% endif %}
+                                <td data-label="最大上限">
+                                    <span style="cursor: pointer; border-bottom: 1px dashed var(--text-secondary);"
+                                          onclick="showMaxDevicesModal({{ user.id }}, '{{ user.username }}', {{ user.max_devices }})"
+                                          title="点击修改">
+                                        {{ user.max_devices }} 台
+                                    </span>
                                 </td>
-                                <td class="text-muted">{{ user.created_at[:19] }}</td>
-                                <td>
+                                <td data-label="创建时间" class="text-muted">{{ user.created_at[:19] }}</td>
+                                <td data-label="操作" class="cell-actions">
                                     <div class="actions-cell">
                                         {% if not user.is_admin %}
                                             <button class="btn btn-outline btn-sm"
@@ -469,7 +582,7 @@
                 <div class="form-group">
                     <label for="max_devices">最大设备数</label>
                     <input type="number" id="max_devices" name="max_devices" required
-                           min="1" max="100" value="3" autocomplete="off">
+                           min="1" max="100" value="1" autocomplete="off">
                 </div>
                 <p class="text-muted" style="margin-top: 8px; font-size: 13px;">
                     当前在线设备数超出上限时，最早登录的设备将被强制退出。
