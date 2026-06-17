@@ -523,10 +523,8 @@
             } else {
                 // 使用HTML5 audio播放器（浏览器环境）
                 console.log('使用HTML5 audio播放器');
-                const source = player.querySelector('source');
-                source.src = `/stream/${track.path}`;
-                player.load();
-                player.play();
+                // 直接设置 audio 元素的 src（后台/锁屏时比修改 <source>+load() 更可靠）
+                loadAndPlay(`/stream/${track.path}`);
 
                 // 更新文件名显示
                 document.getElementById('currentFileName').textContent = track.name;
@@ -540,6 +538,25 @@
                 // 更新锁屏媒体信息
                 updateMediaSession(track);
             }
+        }
+
+        // 加载并播放指定 URL，处理后台/锁屏时 play() 被拒绝的情况并重试
+        function loadAndPlay(url, retries = 3) {
+            player.src = url;          // 直接给 audio 元素赋值，避免 <source> 在后台不刷新
+            player.load();
+            const attempt = (left) => {
+                const p = player.play();
+                if (p && typeof p.then === 'function') {
+                    p.catch((err) => {
+                        console.warn('play() 被拒绝:', err && err.name, '剩余重试:', left);
+                        if (left > 0) {
+                            // 后台首次 play 可能被拒，短暂延迟后重试
+                            setTimeout(() => attempt(left - 1), 350);
+                        }
+                    });
+                }
+            };
+            attempt(retries);
         }
 
         // 更新播放列表高亮
@@ -682,7 +699,10 @@
             if (playMode === 'loop') {
                 // 单曲循环：重新播放当前曲目
                 player.currentTime = 0;
-                player.play();
+                const p = player.play();
+                if (p && typeof p.then === 'function') {
+                    p.catch((err) => console.warn('单曲循环重播被拒绝:', err && err.name));
+                }
             } else {
                 // 随机播放：播放随机曲目
                 playRandomTrack();
