@@ -419,6 +419,72 @@
         const player = document.getElementById('mediaPlayer');
         const modeBtn = document.getElementById('modeBtn');
 
+        // ===== MediaSession：让锁屏后能继续后台播放，并显示锁屏控件 =====
+        // 没有注册 MediaSession 时，手机锁屏后浏览器会把页面挂起从而停止播放
+        function updateMediaSession(track) {
+            if (!('mediaSession' in navigator)) return;
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: (track && track.name) ? track.name : document.getElementById('currentFileName').textContent,
+                    artist: '网盘播放器',
+                    artwork: [
+                        { src: '/static/2048x2048.png', sizes: '512x512', type: 'image/png' }
+                    ]
+                });
+            } catch (e) {
+                console.warn('设置 MediaMetadata 失败:', e);
+            }
+        }
+
+        function setupMediaSession() {
+            if (!('mediaSession' in navigator)) return;
+            try {
+                navigator.mediaSession.setActionHandler('play', () => player.play());
+                navigator.mediaSession.setActionHandler('pause', () => player.pause());
+                navigator.mediaSession.setActionHandler('previoustrack', () => playPrevious());
+                navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    if (details.fastSeek && 'fastSeek' in player) {
+                        player.fastSeek(details.seekTime);
+                    } else if (details.seekTime != null) {
+                        player.currentTime = details.seekTime;
+                    }
+                });
+            } catch (e) {
+                console.warn('设置 MediaSession 控制回调失败:', e);
+            }
+
+            // 同步播放状态，锁屏界面才会正确显示播放/暂停
+            player.addEventListener('play', () => {
+                navigator.mediaSession.playbackState = 'playing';
+            });
+            player.addEventListener('pause', () => {
+                navigator.mediaSession.playbackState = 'paused';
+            });
+            player.addEventListener('loadedmetadata', updatePositionState);
+            player.addEventListener('timeupdate', updatePositionState);
+        }
+
+        function updatePositionState() {
+            if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+            if (!player.duration || isNaN(player.duration) || !isFinite(player.duration)) return;
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: player.duration,
+                    playbackRate: player.playbackRate,
+                    position: Math.min(player.currentTime, player.duration)
+                });
+            } catch (e) {
+                // 某些浏览器对参数较敏感，忽略即可
+            }
+        }
+
+        // 仅在浏览器环境（非 Android 原生壳）启用 MediaSession
+        if (typeof Android === 'undefined') {
+            setupMediaSession();
+            updateMediaSession(playlist[currentIndex]);
+        }
+
         // 播放指定曲目，manualSelect=true 表示用户手动选曲（重置循环历史）
         function playTrack(index, manualSelect = true) {
             if (index < 0 || index >= playlist.length) return;
@@ -470,6 +536,9 @@
 
                 // 更新播放列表高亮
                 updatePlaylistHighlight();
+
+                // 更新锁屏媒体信息
+                updateMediaSession(track);
             }
         }
 
