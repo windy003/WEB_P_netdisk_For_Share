@@ -540,23 +540,49 @@
             }
         }
 
-        // 加载并播放指定 URL，处理后台/锁屏时 play() 被拒绝的情况并重试
-        function loadAndPlay(url, retries = 3) {
+        // 加载并播放指定 URL，处理后台/锁屏时 play() 被拒绝的情况
+        // 关键：锁屏切歌时，当前曲目 ended 后页面不再"正在播放"，会被浏览器节流，
+        // 依赖 setTimeout 重试并不可靠。改为监听媒体事件（不受定时器节流影响）来兜底触发播放。
+        let _pendingPlayHandler = null;
+        function loadAndPlay(url) {
+            // 清理上一次切歌可能残留的兜底监听，避免累积
+            if (_pendingPlayHandler) {
+                player.removeEventListener('canplay', _pendingPlayHandler);
+                player.removeEventListener('loadeddata', _pendingPlayHandler);
+                _pendingPlayHandler = null;
+            }
+
             player.src = url;          // 直接给 audio 元素赋值，避免 <source> 在后台不刷新
             player.load();
-            const attempt = (left) => {
+
+            // 提前告知系统会话仍在继续播放，避免锁屏控件判定为已停止
+            if (typeof Android === 'undefined' && 'mediaSession' in navigator) {
+                try { navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
+            }
+
+            const cleanup = () => {
+                player.removeEventListener('canplay', tryPlay);
+                player.removeEventListener('loadeddata', tryPlay);
+                _pendingPlayHandler = null;
+            };
+            const tryPlay = () => {
                 const p = player.play();
                 if (p && typeof p.then === 'function') {
-                    p.catch((err) => {
-                        console.warn('play() 被拒绝:', err && err.name, '剩余重试:', left);
-                        if (left > 0) {
-                            // 后台首次 play 可能被拒，短暂延迟后重试
-                            setTimeout(() => attempt(left - 1), 350);
-                        }
+                    p.then(cleanup).catch((err) => {
+                        console.warn('play() 被拒绝:', err && err.name);
                     });
+                } else {
+                    cleanup();
                 }
             };
-            attempt(retries);
+
+            // 兜底：资源可播放时再次尝试（事件回调不会被后台定时器节流拖死）
+            _pendingPlayHandler = tryPlay;
+            player.addEventListener('canplay', tryPlay);
+            player.addEventListener('loadeddata', tryPlay);
+
+            // 立即尝试一次（前台/资源已缓存时可直接成功）
+            tryPlay();
         }
 
         // 更新播放列表高亮
