@@ -8,11 +8,11 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.netdisk.app"
+        applicationId = "com.netdisk.hymns"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
-        versionName = "2026/6/17-1"
+        versionName = "2026/6/17-2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
