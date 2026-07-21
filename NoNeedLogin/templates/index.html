@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赞美诗</title>
+    <link rel="apple-touch-icon" sizes="2048x2048" href="{{ url_for('static', filename='2048x2048.png') }}?v=2">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='2048x2048.png') }}?v=2">
+    <style>
+        /* 主题颜色变量定义 */
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: white;
+            --bg-tertiary: #f0f0f0;
+            --text-primary: #333;
+            --text-secondary: #555;
+            --text-muted: #999;
+            --border-color: #f0f0f0;
+            --border-color-light: #e0e0e0;
+            --hover-bg: #f9f9f9;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --accent-color: #667eea;
+            --accent-hover: #5568d3;
+            --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a1a;
+                --bg-secondary: #2a2a2a;
+                --bg-tertiary: #3a3a3a;
+                --text-primary: #fff;
+                --text-secondary: #ccc;
+                --text-muted: #999;
+                --border-color: #3a3a3a;
+                --border-color-light: #4a4a4a;
+                --hover-bg: #3a3a3a;
+                --shadow-color: rgba(0, 0, 0, 0.3);
+                --accent-color: #667eea;
+                --accent-hover: #7b8ff0;
+                --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            box-shadow: 0 2px 4px var(--shadow-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .breadcrumb {
+            background: var(--bg-secondary);
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb a {
+            color: var(--accent-color);
+            text-decoration: none;
+            margin-right: 5px;
+        }
+
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .breadcrumb span {
+            margin: 0 5px;
+            color: var(--text-muted);
+        }
+
+        .actions {
+            background: var(--bg-secondary);
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 150px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 36px 10px 14px;
+            border: 2px solid var(--border-color-light);
+            border-radius: 5px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent-color);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-clear {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 2px 6px;
+            display: none;
+        }
+
+        .search-clear:hover {
+            color: var(--text-primary);
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            display: none;
+        }
+
+        .no-results.show {
+            display: block;
+        }
+
+        .file-list {
+            background: var(--bg-secondary);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.3s;
+        }
+
+        .file-item:hover {
+            background: var(--hover-bg);
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            width: 30px;
+            text-align: center;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: normal;
+        }
+
+        .file-name a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .file-name a:hover {
+            color: var(--accent-color);
+        }
+
+        .file-size {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .file-item.hidden {
+            display: none !important;
+        }
+
+        .alert {
+            padding: 12px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        /* 移动端样式 */
+        @media (max-width: 768px) {
+            .file-item {
+                flex-wrap: wrap;
+                position: relative;
+            }
+
+            .file-info {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .mini-player {
+                padding: 10px !important;
+            }
+
+            .mini-player-info {
+                font-size: 12px !important;
+            }
+
+            .mini-player-controls button {
+                padding: 8px 12px !important;
+                font-size: 16px !important;
+            }
+        }
+
+        /* 底部音频播放器样式 */
+        .mini-player {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--accent-gradient);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 -2px 10px var(--shadow-color);
+            display: none;
+            z-index: 1000;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .mini-player.active {
+            display: flex;
+        }
+
+        .mini-player-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .mini-player-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mini-player-progress {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+
+        .mini-player-progress input[type="range"] {
+            flex: 1;
+            height: 4px;
+        }
+
+        .mini-player-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mini-player-controls button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.3s;
+        }
+
+        .mini-player-controls button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .mini-player-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .mini-player-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 为了给底部播放器留出空间 */
+        body.player-active {
+            padding-bottom: 100px;
+        }
+
+        /* 全屏播放器样式 */
+        .fullscreen-player {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .fullscreen-player.active {
+            display: flex;
+        }
+
+        .fullscreen-player-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .fullscreen-player-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+
+        .fullscreen-player-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .fullscreen-player-artwork {
+            width: 280px;
+            height: 280px;
+            background: var(--accent-gradient);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 120px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            margin-bottom: 40px;
+        }
+
+        .fullscreen-player-title {
+            font-size: 24px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 10px;
+            max-width: 90%;
+            word-break: break-word;
+        }
+
+        .fullscreen-player-artist {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+        }
+
+        .fullscreen-progress-container {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 30px;
+        }
+
+        .fullscreen-progress-bar {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .fullscreen-progress-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .fullscreen-progress-bar::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .fullscreen-time {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 10px;
+        }
+
+        .fullscreen-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .fullscreen-controls button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            padding: 10px;
+        }
+
+        .fullscreen-controls button:hover {
+            transform: scale(1.1);
+        }
+
+        .fullscreen-controls button:active {
+            transform: scale(0.95);
+        }
+
+        .fullscreen-btn-secondary {
+            font-size: 28px;
+            opacity: 0.8;
+        }
+
+        .fullscreen-btn-primary {
+            width: 70px;
+            height: 70px;
+            background: white !important;
+            color: #1a1a2e !important;
+            border-radius: 50%;
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .fullscreen-btn-mode {
+            font-size: 24px;
+            opacity: 0.7;
+        }
+
+        .fullscreen-btn-mode:hover {
+            opacity: 1;
+        }
+
+        /* 迷你播放器点击区域 */
+        .mini-player-clickable {
+            flex: 1;
+            min-width: 0;
+            cursor: pointer;
+        }
+
+        /* Toast提示样式 */
+        .custom-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 15px;
+            font-weight: 500;
+            z-index: 10000;
+            opacity: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+        }
+
+        .custom-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .custom-toast {
+                background: rgba(255, 255, 255, 0.9);
+                color: #333;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>赞美诗</h1>
+    </div>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="{{ url_for('index') }}" onclick="localStorage.removeItem('lastVisitedPath')">首页</a>
+            {% for crumb in breadcrumbs %}
+                <span>/</span>
+                <a href="{{ url_for('index', subpath=crumb.path) }}">{{ crumb.name }}</a>
+            {% endfor %}
+        </div>
+
+        <div class="actions">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索文件..." oninput="filterFiles()">
+                <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="file-list">
+            {% if items %}
+                {% for item in items %}
+                    <div class="file-item" data-type="{{ item.file_type if not item.is_dir else 'folder' }}" data-path="{{ item.path }}" data-name="{{ item.name }}">
+                        <div class="file-icon">
+                            {% if item.is_dir %}
+                                📁
+                            {% elif item.file_type == 'audio' %}
+                                🎵
+                            {% elif item.file_type == 'video' %}
+                                🎬
+                            {% elif item.file_type == 'image' %}
+                                🖼️
+                            {% elif item.file_type == 'pdf' %}
+                                📕
+                            {% else %}
+                                📄
+                            {% endif %}
+                        </div>
+                        <div class="file-info">
+                            <div class="file-name">
+                                {% if item.is_dir %}
+                                    <a href="{{ url_for('index', subpath=item.path) }}">{{ item.name }}</a>
+                                {% elif item.file_type == 'audio' %}
+                                    <a href="#" onclick="playAudio('{{ url_for('stream', filepath=item.path) }}', '{{ item.name }}'); return false;">{{ item.name }}</a>
+                                {% elif item.file_type == 'video' %}
+                                    <a href="{{ url_for('play', filepath=item.path) }}">{{ item.name }}</a>
+                                {% elif item.file_type == 'image' %}
+                                    <a href="{{ url_for('view', filepath=item.path) }}">{{ item.name }}</a>
+                                {% else %}
+                                    {{ item.name }}
+                                {% endif %}
+                            </div>
+                            {% if not item.is_dir %}
+                                <div class="file-size">{{ item.size | format_size }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">📂</div>
+                    <p>此目录为空</p>
+                </div>
+            {% endif %}
+            <div class="no-results" id="noResults">
+                <div class="empty-state-icon">🔍</div>
+                <p>没有找到匹配的文件</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部音频播放器 -->
+    <div id="miniPlayer" class="mini-player">
+        <div class="mini-player-clickable" onclick="openFullscreenPlayer()">
+            <div class="mini-player-info">
+                <div class="mini-player-title" id="playerTitle">未播放</div>
+                <div class="mini-player-progress">
+                    <span id="currentTime">0:00</span>
+                    <input type="range" id="progressBar" min="0" max="100" value="0" onclick="event.stopPropagation()">
+                    <span id="duration">0:00</span>
+                </div>
+            </div>
+        </div>
+        <div class="mini-player-controls">
+            <button onclick="togglePlayPause(); event.stopPropagation();" id="playPauseBtn" title="播放/暂停">▶️</button>
+        </div>
+        <button class="mini-player-close" onclick="closeMiniPlayer(); event.stopPropagation();" title="关闭">✕</button>
+        <audio id="audioPlayer"></audio>
+    </div>
+
+    <!-- 全屏音频播放器 -->
+    <div id="fullscreenPlayer" class="fullscreen-player">
+        <div class="fullscreen-player-header">
+            <div></div>
+            <button class="fullscreen-player-close" onclick="closeFullscreenPlayer()" title="收起">▼</button>
+        </div>
+
+        <div class="fullscreen-player-artwork">
+            🎵
+        </div>
+
+        <div class="fullscreen-player-title" id="fullscreenTitle">未播放</div>
+        <div class="fullscreen-player-artist">正在播放</div>
+
+        <div class="fullscreen-progress-container">
+            <input type="range" class="fullscreen-progress-bar" id="fullscreenProgressBar" min="0" max="100" value="0">
+            <div class="fullscreen-time">
+                <span id="fullscreenCurrentTime">0:00</span>
+                <span id="fullscreenDuration">0:00</span>
+            </div>
+        </div>
+
+        <div class="fullscreen-controls">
+            <button class="fullscreen-btn-mode" id="fullscreenPlayModeBtn" onclick="togglePlayMode()" title="播放模式">🔁</button>
+            <button class="fullscreen-btn-secondary" onclick="previousTrack()" title="上一首">⏮</button>
+            <button class="fullscreen-btn-primary" id="fullscreenPlayPauseBtn" onclick="togglePlayPause()" title="播放/暂停">▶️</button>
+            <button class="fullscreen-btn-secondary" onclick="nextTrack()" title="下一首">⏭</button>
+            <button class="fullscreen-btn-mode" style="opacity: 0; cursor: default;">🔁</button>
+        </div>
+    </div>
+
+    <script>
+        const currentPath = "{{ current_path }}";
+
+        // ============ 音频播放器管理 ============
+        // 检测是否在 Android App 中运行
+        const isAndroidApp = typeof Android !== 'undefined';
+        console.log('运行环境:', isAndroidApp ? 'Android App' : 'Web浏览器');
+
+        const audioPlayer = document.getElementById('audioPlayer');
+        const miniPlayer = document.getElementById('miniPlayer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const progressBar = document.getElementById('progressBar');
+        const currentTimeSpan = document.getElementById('currentTime');
+        const durationSpan = document.getElementById('duration');
+        const playerTitle = document.getElementById('playerTitle');
+
+        // 全屏播放器元素
+        const fullscreenPlayer = document.getElementById('fullscreenPlayer');
+        const fullscreenTitle = document.getElementById('fullscreenTitle');
+        const fullscreenProgressBar = document.getElementById('fullscreenProgressBar');
+        const fullscreenCurrentTime = document.getElementById('fullscreenCurrentTime');
+        const fullscreenDuration = document.getElementById('fullscreenDuration');
+        const fullscreenPlayPauseBtn = document.getElementById('fullscreenPlayPauseBtn');
+        const fullscreenPlayModeBtn = document.getElementById('fullscreenPlayModeBtn');
+
+        let playlist = [];
+        let currentTrackIndex = -1;
+        let playMode = 'loop'; // loop: 单曲循环, random: 随机播放
+        let isNativePlaying = false; // 是否正在使用原生播放器播放
+        let nativeDuration = 0; // Android 原生播放器的总时长（毫秒）
+        let nativePosition = 0; // Android 原生播放器的当前位置（毫秒）
+
+        // 保存播放器状态到 localStorage
+        function savePlayerState() {
+            if (audioPlayer.src) {
+                const playerState = {
+                    src: audioPlayer.src,
+                    title: playerTitle.textContent,
+                    currentTime: audioPlayer.currentTime,
+                    isPlaying: !audioPlayer.paused,
+                    isActive: miniPlayer.classList.contains('active'),
+                    playMode: playMode
+                };
+                localStorage.setItem('audioPlayerState', JSON.stringify(playerState));
+            }
+        }
+
+        // 从 localStorage 恢复播放器状态
+        function restorePlayerState() {
+            const savedState = localStorage.getItem('audioPlayerState');
+            if (savedState) {
+                try {
+                    const playerState = JSON.parse(savedState);
+                    if (playerState.isActive && playerState.src) {
+                        audioPlayer.src = playerState.src;
+                        updateBothTitles(playerState.title);
+                        miniPlayer.classList.add('active');
+                        document.body.classList.add('player-active');
+
+                        // 恢复播放模式
+                        if (playerState.playMode) {
+                            playMode = playerState.playMode;
+                            updatePlayModeButton();
+                        }
+
+                        // 等待音频加载后设置播放位置
+                        audioPlayer.addEventListener('loadedmetadata', function setTime() {
+                            if (playerState.currentTime) {
+                                audioPlayer.currentTime = playerState.currentTime;
+                            }
+                            if (playerState.isPlaying) {
+                                audioPlayer.play().catch(err => {
+                                    console.log('自动播放被阻止:', err);
+                                    updateBothPlayPauseButtons(false);
+                                });
+                            }
+                            audioPlayer.removeEventListener('loadedmetadata', setTime);
+                        }, { once: true });
+                    }
+                } catch (error) {
+                    console.error('恢复播放器状态失败:', error);
+                    localStorage.removeItem('audioPlayerState');
+                }
+            }
+        }
+
+        // 播放音频
+        function playAudio(audioUrl, title) {
+            // 构建当前目录的播放列表
+            buildPlaylist(audioUrl);
+
+            if (isAndroidApp) {
+                // 使用 Android 原生播放器
+                try {
+                    const playlistJson = JSON.stringify(playlist);
+                    Android.playAudio(audioUrl, title, playlistJson);
+
+                    // 更新 UI 状态
+                    isNativePlaying = true;
+                    updateBothTitles(title);
+                    miniPlayer.classList.add('active');
+                    document.body.classList.add('player-active');
+                    updateBothPlayPauseButtons(true);
+
+                    console.log('使用 Android 原生播放器:', title);
+                } catch (error) {
+                    console.error('调用 Android 播放器失败:', error);
+                    // 回退到 Web 播放器
+                    playAudioWeb(audioUrl, title);
+                }
+            } else {
+                // 使用 Web 播放器
+                playAudioWeb(audioUrl, title);
+            }
+        }
+
+        // Web 播放器实现
+        function playAudioWeb(audioUrl, title) {
+            audioPlayer.src = audioUrl;
+            updateBothTitles(title);
+            audioPlayer.play();
+            miniPlayer.classList.add('active');
+            document.body.classList.add('player-active');
+            updateBothPlayPauseButtons(true);
+            isNativePlaying = false;
+            savePlayerState();
+        }
+
+        // 构建播放列表
+        function buildPlaylist(currentAudioUrl) {
+            playlist = [];
+            currentTrackIndex = -1;
+
+            // 从页面中提取所有音频文件链接
+            const audioLinks = document.querySelectorAll('a[onclick*="playAudio"]');
+            audioLinks.forEach((link, index) => {
+                // 提取 onclick 中的参数
+                const onclickAttr = link.getAttribute('onclick');
+                const urlMatch = onclickAttr.match(/playAudio\('([^']+)',\s*'([^']+)'\)/);
+                if (urlMatch) {
+                    const url = urlMatch[1];
+                    const name = urlMatch[2];
+                    // 使用 title 字段以匹配 Android 的 AudioTrack 类
+                    playlist.push({ url: url, title: name });
+
+                    // 找到当前播放的音频在列表中的索引
+                    if (url === currentAudioUrl) {
+                        currentTrackIndex = index;
+                    }
+                }
+            });
+        }
+
+        // 播放/暂停切换
+        function togglePlayPause() {
+            if (isAndroidApp && isNativePlaying) {
+                // 使用 Android 原生播放器控制
+                try {
+                    if (playPauseBtn.textContent === '▶️') {
+                        Android.resumeAudio();
+                        updateBothPlayPauseButtons(true);
+                    } else {
+                        Android.pauseAudio();
+                        updateBothPlayPauseButtons(false);
+                    }
+                } catch (error) {
+                    console.error('调用 Android 播放控制失败:', error);
+                }
+            } else {
+                // 使用 Web 播放器
+                if (audioPlayer.paused) {
+                    audioPlayer.play();
+                    updateBothPlayPauseButtons(true);
+                } else {
+                    audioPlayer.pause();
+                    updateBothPlayPauseButtons(false);
+                }
+                savePlayerState();
+            }
+        }
+
+        // 关闭播放器
+        function closeMiniPlayer() {
+            if (isAndroidApp && isNativePlaying) {
+                // 停止 Android 原生播放器
+                try {
+                    Android.stopAudio();
+                    isNativePlaying = false;
+                } catch (error) {
+                    console.error('停止 Android 播放器失败:', error);
+                }
+            } else {
+                // 停止 Web 播放器
+                audioPlayer.pause();
+                audioPlayer.src = '';
+                localStorage.removeItem('audioPlayerState');
+            }
+
+            miniPlayer.classList.remove('active');
+            fullscreenPlayer.classList.remove('active');
+            document.body.classList.remove('player-active');
+            document.body.style.overflow = '';
+            updateBothPlayPauseButtons(false);
+        }
+
+        // 上一首
+        function previousTrack() {
+            if (isAndroidApp && isNativePlaying) {
+                try {
+                    Android.previousTrack();
+                } catch (error) {
+                    console.error('调用 Android 上一首失败:', error);
+                }
+            } else {
+                if (playMode === 'random' && playlist.length > 0) {
+                    playRandomTrack();
+                } else if (currentTrackIndex > 0) {
+                    currentTrackIndex--;
+                    const track = playlist[currentTrackIndex];
+                    playAudio(track.url, track.title);
+                }
+            }
+        }
+
+        // 下一首
+        function nextTrack() {
+            if (isAndroidApp && isNativePlaying) {
+                try {
+                    Android.nextTrack();
+                } catch (error) {
+                    console.error('调用 Android 下一首失败:', error);
+                }
+            } else {
+                if (playMode === 'random' && playlist.length > 0) {
+                    playRandomTrack();
+                } else if (currentTrackIndex < playlist.length - 1) {
+                    currentTrackIndex++;
+                    const track = playlist[currentTrackIndex];
+                    playAudio(track.url, track.title);
+                }
+            }
+        }
+
+        // 更新播放模式按钮显示
+        function updatePlayModeButton() {
+            updateFullscreenPlayModeButton();
+        }
+
+        // 切换播放模式
+        function togglePlayMode() {
+            let modeName = '';
+            if (playMode === 'loop') {
+                playMode = 'random';
+                modeName = '🔀 随机播放';
+            } else {
+                playMode = 'loop';
+                modeName = '🔂 单曲循环';
+            }
+            updatePlayModeButton();
+            savePlayerState();
+
+            showToast(`播放模式: ${modeName}`);
+
+            if (typeof Android !== 'undefined' && Android.setPlayMode) {
+                Android.setPlayMode(playMode);
+            }
+        }
+
+        // 显示Toast提示
+        function showToast(message) {
+            const existingToast = document.querySelector('.custom-toast');
+            if (existingToast) existingToast.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'custom-toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 随机播放
+        function playRandomTrack() {
+            if (playlist.length <= 1) return;
+
+            let randomIndex;
+            do {
+                randomIndex = Math.floor(Math.random() * playlist.length);
+            } while (randomIndex === currentTrackIndex && playlist.length > 1);
+
+            currentTrackIndex = randomIndex;
+            const track = playlist[currentTrackIndex];
+            playAudio(track.url, track.title);
+        }
+
+        // ============ 全屏播放器控制 ============
+        function openFullscreenPlayer() {
+            fullscreenPlayer.classList.add('active');
+            syncFullscreenPlayer();
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeFullscreenPlayer() {
+            fullscreenPlayer.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function syncFullscreenPlayer() {
+            fullscreenTitle.textContent = playerTitle.textContent;
+            fullscreenProgressBar.value = progressBar.value;
+            fullscreenCurrentTime.textContent = currentTimeSpan.textContent;
+            fullscreenDuration.textContent = durationSpan.textContent;
+            fullscreenPlayPauseBtn.textContent = playPauseBtn.textContent;
+            updateFullscreenPlayModeButton();
+        }
+
+        function updateFullscreenPlayModeButton() {
+            if (playMode === 'loop') {
+                fullscreenPlayModeBtn.textContent = '🔂';
+                fullscreenPlayModeBtn.title = '单曲循环';
+            } else if (playMode === 'random') {
+                fullscreenPlayModeBtn.textContent = '🔀';
+                fullscreenPlayModeBtn.title = '随机播放';
+            }
+        }
+
+        function updateBothProgressBars(progress, currentTimeText, durationText) {
+            progressBar.value = progress;
+            fullscreenProgressBar.value = progress;
+            currentTimeSpan.textContent = currentTimeText;
+            fullscreenCurrentTime.textContent = currentTimeText;
+            durationSpan.textContent = durationText;
+            fullscreenDuration.textContent = durationText;
+        }
+
+        function updateBothPlayPauseButtons(isPlaying) {
+            const icon = isPlaying ? '⏸' : '▶️';
+            playPauseBtn.textContent = icon;
+            fullscreenPlayPauseBtn.textContent = icon;
+        }
+
+        function updateBothTitles(title) {
+            playerTitle.textContent = title;
+            fullscreenTitle.textContent = title;
+        }
+
+        // 定期保存播放进度
+        setInterval(() => {
+            if (miniPlayer.classList.contains('active') && audioPlayer.src) {
+                savePlayerState();
+            }
+        }, 5000);
+
+        // 页面卸载前保存状态
+        window.addEventListener('beforeunload', () => {
+            if (miniPlayer.classList.contains('active') && audioPlayer.src) {
+                savePlayerState();
+            }
+        });
+
+        // ============ Android 原生播放器回调 ============
+        window.onNativePlaybackStateChanged = function(stateJson) {
+            try {
+                const state = JSON.parse(stateJson);
+
+                updateBothPlayPauseButtons(state.isPlaying);
+
+                if (state.currentTrack && state.currentTrack.title) {
+                    updateBothTitles(state.currentTrack.title);
+                }
+
+                if (state.duration > 0) {
+                    nativeDuration = state.duration;
+                    nativePosition = state.currentPosition || 0;
+
+                    const progress = (nativePosition / nativeDuration) * 100;
+                    const currentTimeText = formatTime(nativePosition / 1000);
+                    const durationText = formatTime(nativeDuration / 1000);
+                    updateBothProgressBars(progress, currentTimeText, durationText);
+                }
+
+                miniPlayer.classList.add('active');
+                document.body.classList.add('player-active');
+                isNativePlaying = true;
+
+            } catch (error) {
+                console.error('解析原生播放器状态失败:', error);
+            }
+        };
+
+        window.onNativePlaybackError = function() {
+            console.error('原生播放器发生错误');
+            updateBothPlayPauseButtons(false);
+        };
+
+        // 格式化时间
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 更新进度条
+        audioPlayer.addEventListener('timeupdate', () => {
+            if (audioPlayer.duration) {
+                const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                const currentTimeText = formatTime(audioPlayer.currentTime);
+                const durationText = formatTime(audioPlayer.duration);
+                updateBothProgressBars(progress, currentTimeText, durationText);
+            }
+        });
+
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            const durationText = formatTime(audioPlayer.duration);
+            durationSpan.textContent = durationText;
+            fullscreenDuration.textContent = durationText;
+        });
+
+        // 进度条拖动处理函数
+        function handleProgressBarInput(e) {
+            if (isAndroidApp && isNativePlaying) {
+                if (nativeDuration > 0) {
+                    try {
+                        const percent = e.target.value / 100;
+                        const positionMs = Math.floor(percent * nativeDuration);
+                        Android.seekTo(positionMs);
+                        const timeText = formatTime(positionMs / 1000);
+                        currentTimeSpan.textContent = timeText;
+                        fullscreenCurrentTime.textContent = timeText;
+                        progressBar.value = e.target.value;
+                        fullscreenProgressBar.value = e.target.value;
+                    } catch (error) {
+                        console.error('调用 Android seekTo 失败:', error);
+                    }
+                }
+            } else {
+                const time = (e.target.value / 100) * audioPlayer.duration;
+                audioPlayer.currentTime = time;
+                progressBar.value = e.target.value;
+                fullscreenProgressBar.value = e.target.value;
+            }
+        }
+
+        progressBar.addEventListener('input', handleProgressBarInput);
+        fullscreenProgressBar.addEventListener('input', handleProgressBarInput);
+
+        // 自动播放下一首
+        audioPlayer.addEventListener('ended', () => {
+            if (playMode === 'random') {
+                playRandomTrack();
+            } else {
+                audioPlayer.currentTime = 0;
+                audioPlayer.play();
+            }
+        });
+
+        audioPlayer.addEventListener('play', () => {
+            updateBothPlayPauseButtons(true);
+            savePlayerState();
+        });
+
+        audioPlayer.addEventListener('pause', () => {
+            updateBothPlayPauseButtons(false);
+            savePlayerState();
+        });
+
+        // ============ 搜索功能 ============
+        function filterFiles() {
+            const searchInput = document.getElementById('searchInput');
+            const searchClear = document.getElementById('searchClear');
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const fileItems = document.querySelectorAll('.file-item');
+            const noResults = document.getElementById('noResults');
+            const emptyState = document.querySelector('.empty-state');
+
+            searchClear.style.display = searchTerm ? 'block' : 'none';
+
+            let visibleCount = 0;
+
+            fileItems.forEach(item => {
+                const name = (item.dataset.name || '').toLowerCase();
+                if (searchTerm === '' || name.includes(searchTerm)) {
+                    item.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+
+            if (searchTerm !== '' && visibleCount === 0) {
+                noResults.classList.add('show');
+                if (emptyState) emptyState.style.display = 'none';
+            } else {
+                noResults.classList.remove('show');
+                if (emptyState && fileItems.length === 0) emptyState.style.display = 'block';
+            }
+        }
+
+        function clearSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.value = '';
+            filterFiles();
+            searchInput.focus();
+        }
+
+        // ESC 键清空搜索
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput.value) {
+                    clearSearch();
+                }
+            }
+        });
+
+        // 保存当前访问的路径
+        function saveCurrentPath() {
+            if (currentPath) {
+                localStorage.setItem('lastVisitedPath', currentPath);
+            } else {
+                localStorage.setItem('lastVisitedPath', '');
+            }
+        }
+
+        // 恢复上次访问的路径
+        function restoreLastPath() {
+            const lastPath = localStorage.getItem('lastVisitedPath');
+            if (currentPath === '' && lastPath && lastPath !== '') {
+                window.location.href = `/browse/${lastPath}`;
+                return true;
+            }
+            return false;
+        }
+
+        // 页面加载时恢复播放器状态
+        document.addEventListener('DOMContentLoaded', () => {
+            restorePlayerState();
+
+            const redirected = restoreLastPath();
+            if (!redirected) {
+                saveCurrentPath();
+            }
+        });
+    </script>
+</body>
+</html>

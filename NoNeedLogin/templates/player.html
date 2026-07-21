@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ filename }} - 播放器</title>
+    <style>
+        /* 主题颜色变量定义 */
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: white;
+            --bg-tertiary: #e8e8e8;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --border-color: #ddd;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --accent-color: #667eea;
+            --accent-hover: #5568d3;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a1a;
+                --bg-secondary: #2a2a2a;
+                --bg-tertiary: #3a3a3a;
+                --text-primary: #fff;
+                --text-secondary: #ccc;
+                --border-color: #3a3a3a;
+                --shadow-color: rgba(0, 0, 0, 0.5);
+                --accent-color: #667eea;
+                --accent-hover: #7b8ff0;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px var(--shadow-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+
+        .back-btn {
+            padding: 8px 16px;
+            background: var(--accent-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: background 0.3s;
+            margin-left: 20px;
+        }
+
+        .back-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .player-container {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .main-player {
+            flex: 1;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px var(--shadow-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .file-info {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .file-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .file-name {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        audio, video {
+            width: 100%;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        audio {
+            height: 54px;
+        }
+
+        video {
+            max-height: 500px;
+            background: #000;
+        }
+
+        .player-controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .control-btn:hover {
+            background: var(--border-color);
+        }
+
+        .control-btn.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .mode-btn {
+            min-width: 100px;
+        }
+
+        .playlist-panel {
+            width: 350px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 40px var(--shadow-color);
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 100px);
+        }
+
+        .playlist-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .playlist-items {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .playlist-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .playlist-item:hover {
+            background: var(--border-color);
+        }
+
+        .playlist-item.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .playlist-item-icon {
+            font-size: 20px;
+        }
+
+        .playlist-item-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .playlist-items::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .playlist-items::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        .playlist-items::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .playlist-items::-webkit-scrollbar-thumb:hover {
+            background: var(--border-color);
+        }
+
+        @media (max-width: 1024px) {
+            .player-container {
+                flex-direction: column;
+            }
+
+            .playlist-panel {
+                width: 100%;
+                max-height: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .main-player {
+                padding: 20px;
+            }
+
+            .file-name {
+                font-size: 18px;
+            }
+
+            video {
+                max-height: 300px;
+            }
+        }
+
+        /* Toast提示样式 */
+        .custom-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 15px;
+            font-weight: 500;
+            z-index: 10000;
+            opacity: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+        }
+
+        .custom-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .custom-toast {
+                background: rgba(255, 255, 255, 0.9);
+                color: #333;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎵 {{ filename }}</h1>
+        <a href="javascript:history.back()" class="back-btn">返回</a>
+    </div>
+
+    <div class="player-container">
+        <div class="main-player">
+            <div class="file-info">
+                <div class="file-icon">
+                    {% if file_type == 'audio' %}
+                        🎵
+                    {% elif file_type == 'video' %}
+                        🎬
+                    {% endif %}
+                </div>
+                <div class="file-name" id="currentFileName">{{ filename }}</div>
+            </div>
+
+            {% if file_type == 'audio' %}
+                <audio id="mediaPlayer" controls autoplay preload="metadata">
+                    <source src="{{ url_for('stream', filepath=filepath) }}" type="audio/{{ filename.split('.')[-1] }}">
+                    您的浏览器不支持音频播放。
+                </audio>
+            {% elif file_type == 'video' %}
+                <video id="mediaPlayer" controls autoplay preload="metadata">
+                    <source src="{{ url_for('stream', filepath=filepath) }}" type="video/{{ filename.split('.')[-1] }}">
+                    您的浏览器不支持视频播放。
+                </video>
+            {% endif %}
+
+            <div class="player-controls">
+                <button class="control-btn" onclick="playPrevious()" title="上一曲">⏮️ 上一曲</button>
+                <button class="control-btn mode-btn" id="modeBtn" onclick="togglePlayMode()" title="切换播放模式">🔂 单曲循环</button>
+                <button class="control-btn" onclick="playNext()" title="下一曲">⏭️ 下一曲</button>
+            </div>
+
+            <div class="actions">
+                <a href="{{ url_for('download', filepath=filepath) }}" id="downloadBtn" class="btn btn-primary">下载文件</a>
+                <a href="javascript:history.back()" class="btn btn-secondary">返回列表</a>
+            </div>
+        </div>
+
+        {% if playlist and playlist|length > 1 %}
+        <div class="playlist-panel">
+            <div class="playlist-header">
+                播放列表 ({{ playlist|length }})
+            </div>
+            <div class="playlist-items" id="playlistItems">
+                {% for item in playlist %}
+                    <div class="playlist-item {% if loop.index0 == current_index %}active{% endif %}"
+                         onclick="playTrack({{ loop.index0 }})"
+                         data-index="{{ loop.index0 }}">
+                        <div class="playlist-item-icon">
+                            {% if file_type == 'audio' %}🎵{% else %}🎬{% endif %}
+                        </div>
+                        <div class="playlist-item-name" title="{{ item.name }}">{{ item.name }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // 播放列表数据
+        const playlist = {{ playlist | tojson }};
+        let currentIndex = {{ current_index }};
+        let playMode = 'loop'; // loop: 单曲循环, random: 随机播放
+
+        // 单曲循环模式下的导航历史栈（类似浏览器前进/后退）
+        let loopHistory = [{{ current_index }}];
+        let loopHistPos = 0;
+
+        function initLoopHistory(index) {
+            loopHistory = [index];
+            loopHistPos = 0;
+        }
+
+        const player = document.getElementById('mediaPlayer');
+        const modeBtn = document.getElementById('modeBtn');
+
+        // ===== MediaSession：让锁屏后能继续后台播放，并显示锁屏控件 =====
+        // 没有注册 MediaSession 时，手机锁屏后浏览器会把页面挂起从而停止播放
+        function updateMediaSession(track) {
+            if (!('mediaSession' in navigator)) return;
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: (track && track.name) ? track.name : document.getElementById('currentFileName').textContent,
+                    artist: '网盘播放器',
+                    artwork: [
+                        { src: '/static/2048x2048.png', sizes: '512x512', type: 'image/png' }
+                    ]
+                });
+            } catch (e) {
+                console.warn('设置 MediaMetadata 失败:', e);
+            }
+        }
+
+        function setupMediaSession() {
+            if (!('mediaSession' in navigator)) return;
+            try {
+                navigator.mediaSession.setActionHandler('play', () => player.play());
+                navigator.mediaSession.setActionHandler('pause', () => player.pause());
+                navigator.mediaSession.setActionHandler('previoustrack', () => playPrevious());
+                navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    if (details.fastSeek && 'fastSeek' in player) {
+                        player.fastSeek(details.seekTime);
+                    } else if (details.seekTime != null) {
+                        player.currentTime = details.seekTime;
+                    }
+                });
+            } catch (e) {
+                console.warn('设置 MediaSession 控制回调失败:', e);
+            }
+
+            // 同步播放状态，锁屏界面才会正确显示播放/暂停
+            player.addEventListener('play', () => {
+                navigator.mediaSession.playbackState = 'playing';
+            });
+            player.addEventListener('pause', () => {
+                navigator.mediaSession.playbackState = 'paused';
+            });
+            player.addEventListener('loadedmetadata', updatePositionState);
+            player.addEventListener('timeupdate', updatePositionState);
+        }
+
+        function updatePositionState() {
+            if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+            if (!player.duration || isNaN(player.duration) || !isFinite(player.duration)) return;
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: player.duration,
+                    playbackRate: player.playbackRate,
+                    position: Math.min(player.currentTime, player.duration)
+                });
+            } catch (e) {
+                // 某些浏览器对参数较敏感，忽略即可
+            }
+        }
+
+        // 仅在浏览器环境（非 Android 原生壳）启用 MediaSession
+        if (typeof Android === 'undefined') {
+            setupMediaSession();
+            updateMediaSession(playlist[currentIndex]);
+        }
+
+        // 播放指定曲目，manualSelect=true 表示用户手动选曲（重置循环历史）
+        function playTrack(index, manualSelect = true) {
+            if (index < 0 || index >= playlist.length) return;
+
+            currentIndex = index;
+
+            // 手动点击播放列表时，重置单曲循环的导航历史
+            if (manualSelect && playMode === 'loop') {
+                initLoopHistory(index);
+            }
+            const track = playlist[index];
+
+            // 检查是否在Android应用中
+            if (typeof Android !== 'undefined' && Android.playAudio) {
+                // 使用Android native播放器
+                console.log('使用Android native播放器, playMode:', playMode);
+                const url = `/stream/${track.path}`;
+                const title = track.name;
+                const playlistJson = JSON.stringify(playlist.map(t => ({
+                    url: `/stream/${t.path}`,
+                    title: t.name
+                })));
+
+                // 直接在playAudio调用中传递播放模式
+                console.log('调用Android.playAudio，传递播放模式:', playMode);
+                Android.playAudio(url, title, playlistJson, playMode);
+
+                // 更新文件名显示
+                document.getElementById('currentFileName').textContent = track.name;
+
+                // 更新下载链接
+                document.getElementById('downloadBtn').href = `/download/${track.path}`;
+
+                // 更新播放列表高亮
+                updatePlaylistHighlight();
+            } else {
+                // 使用HTML5 audio播放器（浏览器环境）
+                console.log('使用HTML5 audio播放器');
+                // 直接设置 audio 元素的 src（后台/锁屏时比修改 <source>+load() 更可靠）
+                loadAndPlay(`/stream/${track.path}`);
+
+                // 更新文件名显示
+                document.getElementById('currentFileName').textContent = track.name;
+
+                // 更新下载链接
+                document.getElementById('downloadBtn').href = `/download/${track.path}`;
+
+                // 更新播放列表高亮
+                updatePlaylistHighlight();
+
+                // 更新锁屏媒体信息
+                updateMediaSession(track);
+            }
+        }
+
+        // 加载并播放指定 URL，处理后台/锁屏时 play() 被拒绝的情况
+        // 关键：锁屏切歌时，当前曲目 ended 后页面不再"正在播放"，会被浏览器节流，
+        // 依赖 setTimeout 重试并不可靠。改为监听媒体事件（不受定时器节流影响）来兜底触发播放。
+        let _pendingPlayHandler = null;
+        function loadAndPlay(url) {
+            // 清理上一次切歌可能残留的兜底监听，避免累积
+            if (_pendingPlayHandler) {
+                player.removeEventListener('canplay', _pendingPlayHandler);
+                player.removeEventListener('loadeddata', _pendingPlayHandler);
+                _pendingPlayHandler = null;
+            }
+
+            player.src = url;          // 直接给 audio 元素赋值，避免 <source> 在后台不刷新
+            player.load();
+
+            // 提前告知系统会话仍在继续播放，避免锁屏控件判定为已停止
+            if (typeof Android === 'undefined' && 'mediaSession' in navigator) {
+                try { navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
+            }
+
+            const cleanup = () => {
+                player.removeEventListener('canplay', tryPlay);
+                player.removeEventListener('loadeddata', tryPlay);
+                _pendingPlayHandler = null;
+            };
+            const tryPlay = () => {
+                const p = player.play();
+                if (p && typeof p.then === 'function') {
+                    p.then(cleanup).catch((err) => {
+                        console.warn('play() 被拒绝:', err && err.name);
+                    });
+                } else {
+                    cleanup();
+                }
+            };
+
+            // 兜底：资源可播放时再次尝试（事件回调不会被后台定时器节流拖死）
+            _pendingPlayHandler = tryPlay;
+            player.addEventListener('canplay', tryPlay);
+            player.addEventListener('loadeddata', tryPlay);
+
+            // 立即尝试一次（前台/资源已缓存时可直接成功）
+            tryPlay();
+        }
+
+        // 更新播放列表高亮
+        function updatePlaylistHighlight() {
+            const items = document.querySelectorAll('.playlist-item');
+            items.forEach((item, idx) => {
+                if (idx === currentIndex) {
+                    item.classList.add('active');
+                    item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
+
+        // 随机选一首与当前曲目不同的歌
+        function getRandomIndex() {
+            if (playlist.length <= 1) return currentIndex;
+            let randomIndex;
+            do {
+                randomIndex = Math.floor(Math.random() * playlist.length);
+            } while (randomIndex === currentIndex);
+            return randomIndex;
+        }
+
+        // 上一曲
+        function playPrevious() {
+            if (playlist.length <= 1) return;
+
+            if (playMode === 'loop') {
+                // 单曲循环模式：有历史则后退，否则随机选一首并加入历史头部
+                if (loopHistPos > 0) {
+                    loopHistPos--;
+                    playTrack(loopHistory[loopHistPos], false);
+                } else {
+                    const randomIndex = getRandomIndex();
+                    loopHistory.unshift(randomIndex);
+                    playTrack(randomIndex, false);
+                }
+            } else {
+                // 随机模式
+                playRandomTrack();
+            }
+        }
+
+        // 下一曲
+        function playNext() {
+            if (playlist.length <= 1) return;
+
+            if (playMode === 'loop') {
+                // 单曲循环模式：历史中有后续则前进，否则随机选一首并追加到历史
+                if (loopHistPos < loopHistory.length - 1) {
+                    loopHistPos++;
+                    playTrack(loopHistory[loopHistPos], false);
+                } else {
+                    const randomIndex = getRandomIndex();
+                    loopHistory.push(randomIndex);
+                    loopHistPos++;
+                    playTrack(randomIndex, false);
+                }
+            } else {
+                // 随机模式
+                playRandomTrack();
+            }
+        }
+
+        // 随机播放
+        function playRandomTrack() {
+            if (playlist.length <= 1) return;
+            playTrack(getRandomIndex());
+        }
+
+        // 切换播放模式
+        function togglePlayMode() {
+            let modeName = '';
+            if (playMode === 'loop') {
+                playMode = 'random';
+                modeBtn.textContent = '🔀 随机播放';
+                modeBtn.title = '随机播放';
+                modeName = '🔀 随机播放';
+            } else {
+                playMode = 'loop';
+                modeBtn.textContent = '🔂 单曲循环';
+                modeBtn.title = '单曲循环';
+                modeName = '🔂 单曲循环';
+                // 切换到单曲循环模式时，以当前曲目为起点初始化导航历史
+                initLoopHistory(currentIndex);
+            }
+            modeBtn.classList.add('active');
+            setTimeout(() => modeBtn.classList.remove('active'), 300);
+
+            // 显示Toast提示
+            showToast(`播放模式: ${modeName}`);
+
+            // 记录播放模式切换（用于调试）
+            console.log('播放模式已切换为:', playMode);
+
+            // 在Android应用中，也显示一个alert作为备用
+            if (typeof Android !== 'undefined') {
+                alert(`播放模式切换到: ${modeName}`);
+
+                // 通知native播放器
+                if (Android.setPlayMode) {
+                    console.log('通知Android切换播放模式:', playMode);
+                    Android.setPlayMode(playMode);
+                }
+            }
+        }
+
+        // 显示Toast提示
+        function showToast(message) {
+            // 移除已存在的toast
+            const existingToast = document.querySelector('.custom-toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            // 创建toast元素
+            const toast = document.createElement('div');
+            toast.className = 'custom-toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // 显示动画
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+
+            // 3秒后移除
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3000);
+        }
+
+        // 监听播放结束事件
+        player.addEventListener('ended', function() {
+            if (playMode === 'loop') {
+                // 单曲循环：重新播放当前曲目
+                player.currentTime = 0;
+                const p = player.play();
+                if (p && typeof p.then === 'function') {
+                    p.catch((err) => console.warn('单曲循环重播被拒绝:', err && err.name));
+                }
+            } else {
+                // 随机播放：播放随机曲目
+                playRandomTrack();
+            }
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            // 左箭头：上一曲
+            if (e.key === 'ArrowLeft' && e.ctrlKey) {
+                e.preventDefault();
+                playPrevious();
+            }
+            // 右箭头：下一曲
+            else if (e.key === 'ArrowRight' && e.ctrlKey) {
+                e.preventDefault();
+                playNext();
+            }
+            // M键：切换播放模式
+            else if (e.key === 'm' || e.key === 'M') {
+                togglePlayMode();
+            }
+        });
+    </script>
+</body>
+</html>
