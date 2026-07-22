@@ -1,7 +1,9 @@
 import os
 from pathlib import Path
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash, abort
+from urllib.parse import urlparse, unquote, quote
+from flask import Flask, render_template, send_file, redirect, url_for, flash, abort
 from dotenv import load_dotenv
+import oss2
 
 # 加载 .env 文件（override=True 确保 .env 配置优先于系统环境变量）
 load_dotenv(override=True)
@@ -21,6 +23,123 @@ CONFIG = {
     'HOST': os.getenv('HOST', '0.0.0.0'),
     'DEBUG': os.getenv('DEBUG', 'True').lower() == 'true',
 }
+
+
+def parse_oss_shared_directory(url):
+    """如果 SHARED_DIRECTORY 是一个阿里云 OSS 的 URL，解析出 (endpoint, bucket, prefix)，否则返回 None"""
+    if not url.lower().startswith(('http://', 'https://')):
+        return None
+    parsed = urlparse(url)
+    host_parts = parsed.netloc.split('.', 1)
+    if len(host_parts) != 2 or 'aliyuncs.com' not in host_parts[1]:
+        return None
+    bucket = host_parts[0]
+    endpoint = host_parts[1]
+    prefix = unquote(parsed.path).lstrip('/')
+    if prefix and not prefix.endswith('/'):
+        prefix += '/'
+    return {'endpoint': endpoint, 'bucket': bucket, 'prefix': prefix}
+
+
+OSS_CONFIG = parse_oss_shared_directory(CONFIG['SHARED_DIRECTORY'])
+USE_OSS = OSS_CONFIG is not None
+
+_oss_bucket = None
+
+
+def get_oss_bucket():
+    """获取（并缓存）OSS Bucket 客户端。优先使用 .env 中的 AccessKey，未配置则匿名访问（适用于 public-read 的桶）"""
+    global _oss_bucket
+    if _oss_bucket is None:
+        ak = os.getenv('OSS_ACCESS_KEY_ID')
+        sk = os.getenv('OSS_ACCESS_KEY_SECRET')
+        auth = oss2.Auth(ak, sk) if ak and sk else oss2.AnonymousAuth()
+        _oss_bucket = oss2.Bucket(auth, f"https://{OSS_CONFIG['endpoint']}", OSS_CONFIG['bucket'])
+    return _oss_bucket
+
+
+def get_safe_oss_key(relative_path):
+    """获取安全的 OSS Object Key，防止路径遍历"""
+    relative_path = relative_path.replace('\\', '/').strip('/')
+    if '..' in relative_path.split('/'):
+        abort(403)
+    return OSS_CONFIG['prefix'] + relative_path
+
+
+def get_oss_parent_prefix(key):
+    """获取某个 OSS key 所在的父级前缀（相当于所在目录）"""
+    idx = key.rfind('/')
+    return key[:idx + 1] if idx >= 0 else ''
+
+
+def get_directory_contents_oss(prefix):
+    """获取 OSS 上某个前缀（虚拟目录）下的内容"""
+    items = []
+    bucket = get_oss_bucket()
+    try:
+        for obj in oss2.ObjectIterator(bucket, prefix=prefix, delimiter='/'):
+            if obj.is_prefix():
+                name = obj.key[len(prefix):].rstrip('/')
+                if not name:
+                    continue
+                items.append({
+                    'name': name,
+                    'is_dir': True,
+                    'size': 0,
+                    'path': obj.key[len(OSS_CONFIG['prefix']):].rstrip('/'),
+                    'file_type': None
+                })
+            else:
+                if obj.key == prefix:
+                    continue
+                name = obj.key[len(prefix):]
+                if not name:
+                    continue
+                items.append({
+                    'name': name,
+                    'is_dir': False,
+                    'size': obj.size,
+                    'path': obj.key[len(OSS_CONFIG['prefix']):],
+                    'file_type': get_file_type(name)
+                })
+    except oss2.exceptions.OssError as e:
+        flash(f'读取 OSS 目录失败: {e}', 'error')
+    items.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
+    return items
+
+
+def get_oss_media_playlist(filepath, wanted_type):
+    """获取 OSS 上与 filepath 同目录、且类型为 wanted_type 的文件列表（播放列表）"""
+    key = get_safe_oss_key(filepath)
+    parent_prefix = get_oss_parent_prefix(key)
+    playlist = []
+    current_index = 0
+    for item in get_directory_contents_oss(parent_prefix):
+        if not item['is_dir'] and item['file_type'] == wanted_type:
+            playlist.append({'name': item['name'], 'path': item['path']})
+            if item['path'] == filepath.replace('\\', '/').strip('/'):
+                current_index = len(playlist) - 1
+    return playlist, current_index
+
+
+def get_oss_signed_url(filepath, as_attachment=False, expires=3600):
+    """生成 OSS 对象的签名直链，让浏览器直接从 OSS 拉取数据（而不是经由本服务器中转）"""
+    key = get_safe_oss_key(filepath)
+    bucket = get_oss_bucket()
+
+    try:
+        bucket.head_object(key)
+    except oss2.exceptions.NoSuchKey:
+        abort(404)
+    except oss2.exceptions.OssError:
+        abort(404)
+
+    params = {}
+    if as_attachment:
+        filename = Path(filepath).name
+        params['response-content-disposition'] = f"attachment; filename*=UTF-8''{quote(filename)}"
+
+    return bucket.sign_url('GET', key, expires, params=params, slash_safe=True)
 
 
 def get_safe_path(relative_path):
@@ -97,18 +216,24 @@ app.jinja_env.filters['format_size'] = format_size
 @app.route('/browse/<path:subpath>')
 def index(subpath=''):
     """浏览目录"""
-    current_path = get_safe_path(subpath)
+    if USE_OSS:
+        prefix = get_safe_oss_key(subpath)
+        if prefix and not prefix.endswith('/'):
+            prefix += '/'
+        items = get_directory_contents_oss(prefix)
+    else:
+        current_path = get_safe_path(subpath)
 
-    if not current_path.exists():
-        flash('路径不存在', 'error')
-        return redirect(url_for('index'))
+        if not current_path.exists():
+            flash('路径不存在', 'error')
+            return redirect(url_for('index'))
 
-    if current_path.is_file():
-        # 如果是文件，重定向到父目录
-        return redirect(url_for('index'))
+        if current_path.is_file():
+            # 如果是文件，重定向到父目录
+            return redirect(url_for('index'))
 
-    # 获取目录内容
-    items = get_directory_contents(current_path)
+        # 获取目录内容
+        items = get_directory_contents(current_path)
 
     # 构建面包屑导航
     breadcrumbs = []
@@ -128,6 +253,27 @@ def index(subpath=''):
 @app.route('/play/<path:filepath>')
 def play(filepath):
     """播放音频/视频文件"""
+    if USE_OSS:
+        key = get_safe_oss_key(filepath)
+        try:
+            get_oss_bucket().head_object(key)
+        except oss2.exceptions.OssError:
+            abort(404)
+
+        file_type = get_file_type(filepath)
+        if file_type not in ['audio', 'video']:
+            flash('此文件类型不支持在线播放', 'error')
+            return redirect(url_for('index'))
+
+        playlist, current_index = get_oss_media_playlist(filepath, file_type)
+
+        return render_template('player.html',
+                             filename=Path(filepath).name,
+                             filepath=filepath,
+                             file_type=file_type,
+                             playlist=playlist,
+                             current_index=current_index)
+
     file_path = get_safe_path(filepath)
 
     if not file_path.exists() or not file_path.is_file():
@@ -170,6 +316,25 @@ def play(filepath):
 @app.route('/view/<path:filepath>')
 def view(filepath):
     """查看图片文件"""
+    if USE_OSS:
+        key = get_safe_oss_key(filepath)
+        try:
+            get_oss_bucket().head_object(key)
+        except oss2.exceptions.OssError:
+            abort(404)
+
+        if get_file_type(filepath) != 'image':
+            flash('此文件类型不支持查看', 'error')
+            return redirect(url_for('index'))
+
+        playlist, current_index = get_oss_media_playlist(filepath, 'image')
+
+        return render_template('viewer.html',
+                             filename=Path(filepath).name,
+                             filepath=filepath,
+                             playlist=playlist,
+                             current_index=current_index)
+
     file_path = get_safe_path(filepath)
 
     if not file_path.exists() or not file_path.is_file():
@@ -211,6 +376,9 @@ def view(filepath):
 @app.route('/stream/<path:filepath>')
 def stream(filepath):
     """流式传输媒体文件（无需登录，公开访问）"""
+    if USE_OSS:
+        return redirect(get_oss_signed_url(filepath, as_attachment=False))
+
     file_path = get_safe_path(filepath)
 
     if not file_path.exists() or not file_path.is_file():
@@ -222,6 +390,9 @@ def stream(filepath):
 @app.route('/download/<path:filepath>')
 def download(filepath):
     """下载文件（无需登录，公开访问）"""
+    if USE_OSS:
+        return redirect(get_oss_signed_url(filepath, as_attachment=True))
+
     file_path = get_safe_path(filepath)
 
     if not file_path.exists() or not file_path.is_file():
@@ -231,16 +402,21 @@ def download(filepath):
 
 
 if __name__ == '__main__':
-    # 确保共享目录存在
-    shared_dir = Path(CONFIG['SHARED_DIRECTORY'])
-    if not shared_dir.exists():
-        shared_dir.mkdir(parents=True)
-        print(f"已创建共享目录: {shared_dir}")
+    if USE_OSS:
+        print(f"共享目录来自阿里云 OSS: bucket={OSS_CONFIG['bucket']}, endpoint={OSS_CONFIG['endpoint']}, prefix={OSS_CONFIG['prefix']}")
+        if not (os.getenv('OSS_ACCESS_KEY_ID') and os.getenv('OSS_ACCESS_KEY_SECRET')):
+            print("未配置 OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET，将以匿名方式访问（要求该 Bucket/前缀允许公开读取和列举）")
+    else:
+        # 确保共享目录存在
+        shared_dir = Path(CONFIG['SHARED_DIRECTORY'])
+        if not shared_dir.exists():
+            shared_dir.mkdir(parents=True)
+            print(f"已创建共享目录: {shared_dir}")
 
     print("=" * 50)
     print("        文件共享服务器（免登录版）")
     print("=" * 50)
-    print(f"共享目录: {shared_dir}")
+    print(f"共享目录: {CONFIG['SHARED_DIRECTORY']}")
     print("\n访问地址:")
     print(f"  本机: http://127.0.0.1:{CONFIG['PORT']}")
     print(f"  局域网: http://<你的IP地址>:{CONFIG['PORT']}")

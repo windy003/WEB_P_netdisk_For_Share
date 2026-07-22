@@ -1,0 +1,19 @@
+# 文件共享服务器配置文件（免登录版）
+
+# 共享目录路径（修改为你要共享的目录）
+# SHARED_DIRECTORY=D:\files\myNetdisk\audios\赞美诗\赞美诗全
+SHARED_DIRECTORY=https://jdbendi.oss-cn-hangzhou.aliyuncs.com/hymns/%E8%B5%9E%E7%BE%8E%E8%AF%97%E5%85%A8/
+
+
+OSS_ACCESS_KEY_ID=
+
+OSS_ACCESS_KEY_SECRET=
+
+# 服务器端口
+PORT=5001
+
+# 服务器主机
+HOST=0.0.0.0
+
+# 调试模式
+DEBUG=True
