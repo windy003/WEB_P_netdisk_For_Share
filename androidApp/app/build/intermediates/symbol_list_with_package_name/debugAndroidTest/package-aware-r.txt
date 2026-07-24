@@ -1,3 +1,0 @@
-com.netdisk.app.test
-style WhiteBackgroundDialogTheme
-style WhiteBackgroundTheme

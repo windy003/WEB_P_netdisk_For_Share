@@ -1,6 +1,0 @@
-com.netdisk.app.test.app-annotation-experimental-1.3.0-0 C:\Users\92892\.gradle\caches\transforms-3\11b68ce6fb3b91465a0af0fef1efc7a9\transformed\annotation-experimental-1.3.0\res
-com.netdisk.app.test.app-core-1.5.0-1 C:\Users\92892\.gradle\caches\transforms-3\3c50059d31f4f9bd2bc33b3e2633f655\transformed\core-1.5.0\res
-com.netdisk.app.test.app-androidTest-2 D:\files\using\Web\WEB_P_netdisk_For_Share\androidApp\app\build\generated\res\resValues\androidTest\debug
-com.netdisk.app.test.app-mergeDebugAndroidTestResources-3 D:\files\using\Web\WEB_P_netdisk_For_Share\androidApp\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\merged.dir
-com.netdisk.app.test.app-mergeDebugAndroidTestResources-4 D:\files\using\Web\WEB_P_netdisk_For_Share\androidApp\app\build\intermediates\incremental\debugAndroidTest\mergeDebugAndroidTestResources\stripped.dir
-com.netdisk.app.test.app-merged_res-5 D:\files\using\Web\WEB_P_netdisk_For_Share\androidApp\app\build\intermediates\merged_res\debugAndroidTest

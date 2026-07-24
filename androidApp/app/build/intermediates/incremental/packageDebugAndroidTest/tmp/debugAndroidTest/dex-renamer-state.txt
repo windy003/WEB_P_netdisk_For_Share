@@ -1,7 +1,0 @@
-#Wed Jun 17 12:26:19 CST 2026
-base.1=D\:\\files\\using\\Web\\WEB_P_netdisk_For_Share\\androidApp\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeProjectDexDebugAndroidTest\\0\\classes.dex
-path.1=0/classes.dex
-base.0=D\:\\files\\using\\Web\\WEB_P_netdisk_For_Share\\androidApp\\app\\build\\intermediates\\dex\\debugAndroidTest\\mergeExtDexDebugAndroidTest\\classes.dex
-renamed.1=classes2.dex
-renamed.0=classes.dex
-path.0=classes.dex
