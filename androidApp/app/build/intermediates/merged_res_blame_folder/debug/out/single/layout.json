@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "com.netdisk.app-mergeDebugResources-36:/layout/activity_settings.xml",
+        "source": "com.netdisk.app-main-39:/layout/activity_settings.xml"
+    },
+    {
+        "merged": "com.netdisk.app-mergeDebugResources-36:/layout/activity_main.xml",
+        "source": "com.netdisk.app-main-39:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.netdisk.app-mergeDebugResources-36:/layout/item_download.xml",
+        "source": "com.netdisk.app-main-39:/layout/item_download.xml"
+    },
+    {
+        "merged": "com.netdisk.app-mergeDebugResources-36:/layout/activity_downloads.xml",
+        "source": "com.netdisk.app-main-39:/layout/activity_downloads.xml"
+    }
+]
