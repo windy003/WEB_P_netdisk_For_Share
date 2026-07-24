@@ -1,5 +1,5 @@
-android/.gradle
-android/build
-android/app/build
+androidApp/.gradle/
+androidApp/build
+androidApp/app/build
+androidApp/.idea/
 .claude/
-android/.idea/
