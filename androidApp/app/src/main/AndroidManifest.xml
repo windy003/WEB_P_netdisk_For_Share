@@ -13,7 +13,7 @@
     <application
         android:allowBackup="true"
         android:icon="@drawable/a2048x2048"
-        android:label="hymns"
+        android:label="赞美诗"
         android:roundIcon="@drawable/a2048x2048"
         android:supportsRtl="true"
         android:theme="@style/Theme.Netdisk"
