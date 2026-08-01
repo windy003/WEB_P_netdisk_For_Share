@@ -426,8 +426,8 @@ if __name__ == '__main__':
     print()
 
     # 调试模式开关：保留下面其中一行，另一行用快捷键（VS Code 默认 Ctrl+/）注释掉即可切换
-    DEBUG_MODE = True
-    # DEBUG_MODE = False
+    # DEBUG_MODE = True
+    DEBUG_MODE = False
 
     if DEBUG_MODE:
         # 开发模式：Flask 自带调试服务器，支持代码热重载和调试报错页
