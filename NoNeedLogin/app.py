@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import urlparse, unquote, quote
 from flask import Flask, render_template, send_file, redirect, url_for, flash, abort
 from dotenv import load_dotenv
+from waitress import serve
 import oss2
 
 # 加载 .env 文件（override=True 确保 .env 配置优先于系统环境变量）
@@ -424,4 +425,13 @@ if __name__ == '__main__':
     print("=" * 50)
     print()
 
-    app.run(host=CONFIG['HOST'], port=CONFIG['PORT'], debug=CONFIG['DEBUG'], threaded=True)
+    # 调试模式开关：保留下面其中一行，另一行用快捷键（VS Code 默认 Ctrl+/）注释掉即可切换
+    DEBUG_MODE = True
+    # DEBUG_MODE = False
+
+    if DEBUG_MODE:
+        # 开发模式：Flask 自带调试服务器，支持代码热重载和调试报错页
+        app.run(host=CONFIG['HOST'], port=CONFIG['PORT'], debug=True, threaded=True)
+    else:
+        # 生产模式：waitress WSGI 服务器，多线程并发处理请求
+        serve(app, host=CONFIG['HOST'], port=CONFIG['PORT'], threads=8)
