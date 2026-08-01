@@ -424,4 +424,4 @@ if __name__ == '__main__':
     print("=" * 50)
     print()
 
-    app.run(host=CONFIG['HOST'], port=CONFIG['PORT'], debug=CONFIG['DEBUG'])
+    app.run(host=CONFIG['HOST'], port=CONFIG['PORT'], debug=CONFIG['DEBUG'], threaded=True)

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文件浏览器</title>
+    <title>赞美诗</title>
     <link rel="apple-touch-icon" sizes="2048x2048" href="{{ url_for('static', filename='2048x2048.png') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='2048x2048.png') }}">
     <style>
@@ -22,6 +22,9 @@
             --accent-color: #667eea;
             --accent-hover: #5568d3;
             --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --notice-bg: #fff1e6;
+            --notice-border: #ffb877;
+            --notice-text: #9a4a00;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -39,6 +42,9 @@
                 --accent-color: #667eea;
                 --accent-hover: #7b8ff0;
                 --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                --notice-bg: #3a2818;
+                --notice-border: #6b4321;
+                --notice-text: #ffab66;
             }
         }
 
@@ -66,6 +72,28 @@
         .header h1 {
             font-size: 24px;
             color: var(--text-primary);
+        }
+
+        .app-notice {
+            display: block;
+            background: var(--bg-secondary);
+            border-radius: 5px;
+            color: var(--text-secondary);
+            padding: 15px 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .app-notice a {
+            color: var(--accent-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .app-notice a:hover {
+            text-decoration: underline;
         }
 
         .logout-btn {
@@ -597,7 +625,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>文件浏览器</h1>
+        <h1>赞美诗</h1>
         <div style="display: flex; gap: 10px; align-items: center;">
             {% if session.is_admin %}
                 <a href="{{ url_for('admin_users') }}" class="logout-btn" style="background: var(--accent-gradient); margin-right: 0;">用户管理</a>
@@ -613,6 +641,11 @@
                 <span>/</span>
                 <a href="{{ url_for('index', subpath=crumb.path) }}">{{ crumb.name }}</a>
             {% endfor %}
+        </div>
+
+        <div class="app-notice">
+            如果要在手机上后台播放(黑屏播放),请下载app后使用,下载文件后,把文件后缀改为.apk,安装使用就可以了
+            <a href="https://jdbendi.oss-cn-hangzhou.aliyuncs.com/hymns/app-debug.bin" target="_blank" rel="noopener noreferrer">点我</a>版本:2026/8/1-1,请尽量使用最新版本.
         </div>
 
         <div class="actions">
