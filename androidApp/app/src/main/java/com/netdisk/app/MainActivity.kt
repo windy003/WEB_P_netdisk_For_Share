@@ -9,15 +9,12 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.webkit.CookieManager
-import android.webkit.URLUtil
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.netdisk.app.services.AudioPlaybackService
-import com.netdisk.app.storage.NetdiskDownloadManager
 import com.netdisk.app.storage.PreferencesManager
-import com.netdisk.app.ui.DownloadsActivity
 import com.netdisk.app.ui.SettingsActivity
 import com.netdisk.app.webview.JavaScriptBridge
 import com.netdisk.app.webview.NetdiskWebChromeClient
@@ -27,7 +24,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var preferencesManager: PreferencesManager
-    private lateinit var downloadManager: NetdiskDownloadManager
     private lateinit var webChromeClient: NetdiskWebChromeClient
 
     private val playbackStateReceiver = object : BroadcastReceiver() {
@@ -50,7 +46,6 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize managers
         preferencesManager = PreferencesManager(this)
-        downloadManager = NetdiskDownloadManager(this)
 
         // Check if this is first launch (no server configured)
         if (isFirstLaunch()) {
@@ -116,19 +111,10 @@ class MainActivity : AppCompatActivity() {
         android.util.Log.d("MainActivity", "WebView clients set")
 
         // Inject JavaScript bridge
-        val jsBridge = JavaScriptBridge(this, downloadManager, preferencesManager)
+        val jsBridge = JavaScriptBridge(this, preferencesManager)
         webView.addJavascriptInterface(jsBridge, "Android")
 
         android.util.Log.d("MainActivity", "JavaScript bridge injected")
-
-        // Set download listener for handling file downloads
-        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-            android.util.Log.d("MainActivity", "Download requested: url=$url, mimetype=$mimetype")
-            val filename = URLUtil.guessFileName(url, contentDisposition, mimetype)
-            downloadManager.enqueueDownload(url, filename)
-        }
-
-        android.util.Log.d("MainActivity", "Download listener set")
 
         // Restore cookies if available
         restoreCookies()
@@ -199,12 +185,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_downloads -> {
-                startActivity(Intent(this, DownloadsActivity::class.java))
-                true
-            }
             R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
+                startActivityForResult(Intent(this, SettingsActivity::class.java), REQUEST_SETTINGS_UPDATE)
                 true
             }
             R.id.action_refresh -> {
@@ -284,6 +266,12 @@ class MainActivity : AppCompatActivity() {
                     finish()
                 }
             }
+            REQUEST_SETTINGS_UPDATE -> {
+                if (resultCode == RESULT_OK) {
+                    android.util.Log.d("MainActivity", "Settings updated, reloading server URL...")
+                    loadServerUrl()
+                }
+            }
             else -> {
                 // Handle file chooser result
                 if (::webChromeClient.isInitialized) {
@@ -330,5 +318,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_INITIAL_SETUP = 1000
+        private const val REQUEST_SETTINGS_UPDATE = 1001
     }
 }

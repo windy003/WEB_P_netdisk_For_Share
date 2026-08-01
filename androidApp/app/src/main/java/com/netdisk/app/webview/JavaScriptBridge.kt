@@ -8,12 +8,10 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.netdisk.app.models.AudioTrack
 import com.netdisk.app.services.AudioPlaybackService
-import com.netdisk.app.storage.NetdiskDownloadManager
 import com.netdisk.app.storage.PreferencesManager
 
 class JavaScriptBridge(
     private val context: Context,
-    private val downloadManager: NetdiskDownloadManager,
     private val preferencesManager: PreferencesManager
 ) {
 
@@ -109,16 +107,6 @@ class JavaScriptBridge(
     fun stopAudio() {
         Log.d(TAG, "stopAudio called")
         sendServiceAction(AudioPlaybackService.ACTION_STOP)
-    }
-
-    @JavascriptInterface
-    fun downloadFile(url: String, filename: String) {
-        Log.d(TAG, "downloadFile called: url=$url, filename=$filename")
-        try {
-            downloadManager.enqueueDownload(url, filename)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error downloading file", e)
-        }
     }
 
     @JavascriptInterface

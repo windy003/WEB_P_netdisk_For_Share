@@ -40,30 +40,12 @@
             android:label="@string/settings"
             android:parentActivityName=".MainActivity" />
 
-        <!-- Downloads Activity -->
-        <activity
-            android:name=".ui.DownloadsActivity"
-            android:exported="false"
-            android:label="@string/downloads"
-            android:parentActivityName=".MainActivity" />
-
         <!-- Audio Playback Service -->
         <service
             android:name=".services.AudioPlaybackService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
-
-        <!-- FileProvider for downloads -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
 
     </application>
 

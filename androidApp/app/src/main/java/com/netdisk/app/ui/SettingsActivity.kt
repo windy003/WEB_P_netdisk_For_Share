@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
+import android.widget.Filter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.netdisk.app.R
@@ -28,11 +29,31 @@ class SettingsActivity : AppCompatActivity() {
         serverUrlInput = findViewById(R.id.serverUrlInput)
         saveButton = findViewById(R.id.saveButton)
 
-        // Dropdown with preset server address(es)
-        val presetUrls = arrayOf(getString(R.string.preset_server_url))
-        serverUrlInput.setAdapter(
-            ArrayAdapter(this, android.R.layout.simple_list_item_1, presetUrls)
+        // Dropdown with preset server address(es).
+        // A plain ArrayAdapter filters options by the text already in the field
+        // (e.g. a previously saved URL), so only a matching preset would show up.
+        // Override the filter to always show every preset regardless of current text.
+        val presetUrls = arrayOf(
+            getString(R.string.preset_server_url),
+            getString(R.string.preset_server_url_2)
         )
+        val presetAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, presetUrls) {
+            override fun getFilter(): Filter {
+                return object : Filter() {
+                    override fun performFiltering(constraint: CharSequence?): FilterResults {
+                        return FilterResults().apply {
+                            values = presetUrls
+                            count = presetUrls.size
+                        }
+                    }
+
+                    override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                        notifyDataSetChanged()
+                    }
+                }
+            }
+        }
+        serverUrlInput.setAdapter(presetAdapter)
 
         // Load current settings
         loadSettings()
@@ -65,7 +86,7 @@ class SettingsActivity : AppCompatActivity() {
         val input = serverUrlInput.text.toString().trim()
 
         if (input.isEmpty()) {
-            Toast.makeText(this, "Server URL cannot be empty", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "服务器地址不能为空", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -98,7 +119,7 @@ class SettingsActivity : AppCompatActivity() {
 
             val port = portStr.toIntOrNull()
             if (port == null || port < 1 || port > 65535) {
-                Toast.makeText(this, "Invalid port number", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "端口号无效", Toast.LENGTH_SHORT).show()
                 return
             }
 

@@ -21,6 +21,9 @@
             --info-bg: #f0f0f0;
             --accent-color: #667eea;
             --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --highlight-bg: #fff8e1;
+            --highlight-border: #ffe082;
+            --highlight-text: #8a6d00;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -33,6 +36,9 @@
                 --info-bg: #3a3a3a;
                 --accent-color: #667eea;
                 --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                --highlight-bg: #3a3320;
+                --highlight-border: #5c4e1a;
+                --highlight-text: #ffd54f;
             }
         }
 
@@ -138,6 +144,12 @@
         .info p {
             margin: 5px 0;
         }
+
+        .highlight {
+            background: var(--highlight-bg);
+            border: 1px solid var(--highlight-border);
+            color: var(--highlight-text);
+        }
     </style>
 </head>
 <body>
@@ -165,6 +177,10 @@
 
             <button type="submit" class="btn-login">登录</button>
         </form>
+
+        <div class="info highlight">
+            <p>请向站长索要帐号和密码，微信号：'trust030703'</p>
+        </div>
 
     </div>
 </body>

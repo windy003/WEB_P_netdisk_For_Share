@@ -1,1 +1,0 @@
-start /b  pythonw D:\files\using\Web\WEB_P_netdisk_For_Share\app.py
