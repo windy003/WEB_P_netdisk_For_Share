@@ -5,8 +5,9 @@ $appDir = Join-Path $root 'NoNeedLogin'
 $appPyPath = Join-Path $appDir 'app.py'
 
 function Get-WaitSeconds {
+    param([string]$Key, [int]$Default = 5)
     try {
-        $line = Get-Content $envFile -ErrorAction Stop | Where-Object { $_ -match 'switch_waiting_time\s*=\s*([0-9\s\*]+)' } | Select-Object -First 1
+        $line = Get-Content $envFile -ErrorAction Stop | Where-Object { $_ -match "^$Key\s*=\s*([0-9\s\*]+)" } | Select-Object -First 1
         if ($line -and $Matches[1]) {
             $expr = $Matches[1].Trim()
             if ($expr -match '^[0-9]+(\s*\*\s*[0-9]+)*$') {
@@ -16,7 +17,7 @@ function Get-WaitSeconds {
             }
         }
     } catch {}
-    return 5
+    return $Default
 }
 
 function Stop-Matching {
@@ -44,13 +45,14 @@ while ($true) {
         Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 检测到赞美诗服务正在运行 -> 切换到广告页"
         Stop-Matching -Pattern1 '*NoNeedLogin*app.py*'
         Start-Process -FilePath 'python' -ArgumentList @('-m', 'http.server', '5001', '-d', $switchDir) -WindowStyle Hidden
+        $wait = Get-WaitSeconds -Key 'Static_Page_Lasting'
     } else {
         Write-Host "[$(Get-Date -Format 'HH:mm:ss')] 未检测到赞美诗服务 -> 切换回赞美诗页面"
         Stop-Matching -Pattern1 '*http.server*' -Pattern2 '*5001*'
         Start-Process -FilePath 'pythonw' -ArgumentList @("`"$appPyPath`"") -WorkingDirectory $appDir -WindowStyle Hidden
+        $wait = Get-WaitSeconds -Key 'No_Need_Login_Page_Lasting'
     }
 
-    $wait = Get-WaitSeconds
     Write-Host "  等待 $wait 秒..."
     Start-Sleep -Seconds $wait
 }
