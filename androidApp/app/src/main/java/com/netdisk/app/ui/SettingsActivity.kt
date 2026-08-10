@@ -1,14 +1,27 @@
 package com.netdisk.app.ui
 
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.Filter
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.netdisk.app.R
 import com.netdisk.app.storage.PreferencesManager
+
+/**
+ * A preset server URL paired with a short Chinese description
+ * (e.g. whether that address requires logging in).
+ * toString() returns just the URL so selecting it fills the input field correctly.
+ */
+private data class PresetUrl(val url: String, val label: String) {
+    override fun toString(): String = url
+}
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -34,10 +47,10 @@ class SettingsActivity : AppCompatActivity() {
         // (e.g. a previously saved URL), so only a matching preset would show up.
         // Override the filter to always show every preset regardless of current text.
         val presetUrls = arrayOf(
-            getString(R.string.preset_server_url),
-            getString(R.string.preset_server_url_2)
+            PresetUrl(getString(R.string.preset_server_url), getString(R.string.preset_server_url_label)),
+            PresetUrl(getString(R.string.preset_server_url_2), getString(R.string.preset_server_url_2_label))
         )
-        val presetAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, presetUrls) {
+        val presetAdapter = object : ArrayAdapter<PresetUrl>(this, R.layout.item_preset_url, presetUrls) {
             override fun getFilter(): Filter {
                 return object : Filter() {
                     override fun performFiltering(constraint: CharSequence?): FilterResults {
@@ -51,6 +64,15 @@ class SettingsActivity : AppCompatActivity() {
                         notifyDataSetChanged()
                     }
                 }
+            }
+
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = convertView ?: LayoutInflater.from(context)
+                    .inflate(R.layout.item_preset_url, parent, false)
+                val item = getItem(position)
+                view.findViewById<TextView>(R.id.presetUrlText).text = item?.url
+                view.findViewById<TextView>(R.id.presetUrlLabel).text = item?.label
+                return view
             }
         }
         serverUrlInput.setAdapter(presetAdapter)
