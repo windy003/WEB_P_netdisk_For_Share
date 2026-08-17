@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浏览量统计 - 赞美诗</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='2048x2048.png') }}?v=2">
+    <style>
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: white;
+            --bg-tertiary: #f0f0f0;
+            --text-primary: #333;
+            --text-secondary: #555;
+            --text-muted: #999;
+            --border-color: #f0f0f0;
+            --border-color-light: #e0e0e0;
+            --hover-bg: #f9f9f9;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --accent-color: #667eea;
+            --accent-hover: #5568d3;
+            --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a1a;
+                --bg-secondary: #2a2a2a;
+                --bg-tertiary: #3a3a3a;
+                --text-primary: #fff;
+                --text-secondary: #ccc;
+                --text-muted: #999;
+                --border-color: #3a3a3a;
+                --border-color-light: #4a4a4a;
+                --hover-bg: #3a3a3a;
+                --shadow-color: rgba(0, 0, 0, 0.3);
+                --accent-color: #667eea;
+                --accent-hover: #7b8ff0;
+            }
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            box-shadow: 0 2px 4px var(--shadow-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 22px;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 24px 20px 60px;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            box-shadow: 0 2px 6px var(--shadow-color);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .stat-card .label {
+            margin-top: 6px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            box-shadow: 0 2px 6px var(--shadow-color);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .panel h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        .chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 160px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .bar-wrap {
+            flex: 1 0 20px;
+            min-width: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            height: 100%;
+        }
+
+        .bar {
+            width: 100%;
+            max-width: 22px;
+            background: var(--accent-gradient);
+            border-radius: 3px 3px 0 0;
+            min-height: 2px;
+        }
+
+        .bar-count {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-bottom: 3px;
+        }
+
+        .bar-label {
+            font-size: 9px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        td {
+            color: var(--text-secondary);
+            word-break: break-all;
+        }
+
+        .empty {
+            color: var(--text-muted);
+            font-size: 14px;
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        .table-wrap {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>浏览量统计</h1>
+        <a class="logout-btn" href="{{ url_for('admin_logout') }}">退出登录</a>
+    </div>
+
+    <div class="container">
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="value">{{ total_24h }}</div>
+                <div class="label">最近 24 小时浏览量</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ total_all }}</div>
+                <div class="label">近 7 天累计浏览量</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>最近 24 小时逐时浏览量</h2>
+            <div class="chart">
+                {% for h in hourly %}
+                <div class="bar-wrap" title="{{ h.label }} - {{ h.count }} 次">
+                    <div class="bar-count">{{ h.count if h.count > 0 else '' }}</div>
+                    <div class="bar" style="height: {{ (h.count / max_hourly * 100) if max_hourly > 0 else 0 }}%;"></div>
+                    <div class="bar-label">{{ h.label }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>最近访问记录（最多 50 条）</h2>
+            {% if recent_views %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>路径</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in recent_views %}
+                        <tr>
+                            <td>{{ v.time }}</td>
+                            <td>{{ v.path }}</td>
+                            <td>{{ v.ip }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty">暂无访问记录</div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

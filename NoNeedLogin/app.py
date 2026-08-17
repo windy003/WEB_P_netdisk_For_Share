@@ -1,7 +1,13 @@
 import os
+import re
+import sqlite3
+import time
+import threading
+from functools import wraps
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, unquote, quote
-from flask import Flask, render_template, send_file, redirect, url_for, flash, abort
+from flask import Flask, render_template, send_file, redirect, url_for, flash, abort, request, session, Response
 from dotenv import load_dotenv
 from waitress import serve
 import oss2
@@ -23,7 +29,99 @@ CONFIG = {
     'PORT': int(os.getenv('PORT', 5001)),
     'HOST': os.getenv('HOST', '0.0.0.0'),
     'DEBUG': os.getenv('DEBUG', 'True').lower() == 'true',
+    'ADMIN_PASSWORD': os.getenv('ADMIN_PASSWORD', 'admin123'),
 }
+
+
+# ==================== 浏览量统计 ====================
+
+VIEWS_DB_PATH = Path(__file__).resolve().parent / 'views.db'
+
+
+def init_views_db():
+    """初始化浏览量统计数据库"""
+    conn = sqlite3.connect(str(VIEWS_DB_PATH))
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS page_views (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT NOT NULL,
+            ip TEXT,
+            timestamp REAL NOT NULL
+        )
+    ''')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_page_views_timestamp ON page_views (timestamp)')
+    conn.commit()
+    conn.close()
+
+
+def record_view(path):
+    """记录一次浏览，并顺便清理 7 天前的旧记录"""
+    now = time.time()
+    try:
+        conn = sqlite3.connect(str(VIEWS_DB_PATH))
+        conn.execute('INSERT INTO page_views (path, ip, timestamp) VALUES (?, ?, ?)',
+                     (path, request.remote_addr, now))
+        conn.execute('DELETE FROM page_views WHERE timestamp < ?', (now - 7 * 24 * 3600,))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
+init_views_db()
+
+
+# ==================== 广告页定时切换（内嵌，不再依赖外部进程切换） ====================
+# 说明：以前由 switch.ps1 通过“杀掉/启动不同进程”在同一端口切换正常页面和广告页，
+# 导致广告页展示期间 /admin 不可用。现在改为本进程常驻，内部用定时器切换展示内容，
+# /admin 无论当前显示哪个页面都始终可访问。
+
+SWITCH_PAGE_PATH = Path(__file__).resolve().parent.parent / 'switch' / 'index.html'
+
+AD_STATE = {'active': False}
+AD_MODE_ENDPOINTS = {'index', 'play', 'view', 'stream', 'download'}
+
+
+def get_switch_wait_seconds(key, default):
+    """从环境变量读取形如 `KEY=60*3` 的时长配置（秒）"""
+    expr = os.getenv(key, '').strip()
+    if re.fullmatch(r'\d+(\s*\*\s*\d+)*', expr):
+        result = 1
+        for part in expr.split('*'):
+            result *= int(part.strip())
+        if result > 0:
+            return result
+    return default
+
+
+def switch_loop():
+    """在“正常内容”和“广告页”之间定时切换"""
+    while True:
+        AD_STATE['active'] = False
+        time.sleep(get_switch_wait_seconds('No_Need_Login_Page_Lasting', 600))
+        AD_STATE['active'] = True
+        time.sleep(get_switch_wait_seconds('Static_Page_Lasting', 180))
+
+
+if SWITCH_PAGE_PATH.exists():
+    threading.Thread(target=switch_loop, daemon=True).start()
+
+
+def render_switch_page():
+    """直接读取 switch/index.html 的内容返回，保持单一数据源"""
+    try:
+        html = SWITCH_PAGE_PATH.read_text(encoding='utf-8')
+    except Exception:
+        html = '<h1>Service Unavailable</h1>'
+    return Response(html, mimetype='text/html')
+
+
+@app.before_request
+def gate_ad_mode():
+    """广告页展示期间，拦截浏览/播放/查看/下载类路由，其余（如 /admin）不受影响"""
+    if AD_STATE['active'] and request.endpoint in AD_MODE_ENDPOINTS:
+        record_view('/switch' + request.path)
+        return render_switch_page()
 
 
 def parse_oss_shared_directory(url):
@@ -212,11 +310,91 @@ def get_file_type(filename):
 app.jinja_env.filters['format_size'] = format_size
 
 
+def admin_required(f):
+    """要求管理员登录才能访问"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('is_admin'):
+            return redirect(url_for('admin_login', next=request.path))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """管理员登录"""
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        if password == CONFIG['ADMIN_PASSWORD']:
+            session['is_admin'] = True
+            next_url = request.form.get('next') or url_for('admin')
+            return redirect(next_url)
+        flash('密码错误', 'error')
+    return render_template('admin_login.html', next=request.args.get('next', ''))
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    """管理员退出登录"""
+    session.pop('is_admin', None)
+    return redirect(url_for('admin_login'))
+
+
+@app.route('/admin')
+@admin_required
+def admin():
+    """管理页面：展示最近 24 小时的浏览量统计"""
+    now = time.time()
+    day_ago = now - 24 * 3600
+
+    conn = sqlite3.connect(str(VIEWS_DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    total_24h = conn.execute(
+        'SELECT COUNT(*) c FROM page_views WHERE timestamp >= ?', (day_ago,)
+    ).fetchone()['c']
+    total_all = conn.execute('SELECT COUNT(*) c FROM page_views').fetchone()['c']
+
+    # 最近 24 小时，按小时统计浏览量
+    hourly = []
+    for i in range(23, -1, -1):
+        hour_start = now - (i + 1) * 3600
+        hour_end = now - i * 3600
+        c = conn.execute(
+            'SELECT COUNT(*) c FROM page_views WHERE timestamp >= ? AND timestamp < ?',
+            (hour_start, hour_end)
+        ).fetchone()['c']
+        hourly.append({
+            'label': datetime.fromtimestamp(hour_end).strftime('%H:00'),
+            'count': c
+        })
+    max_hourly = max((h['count'] for h in hourly), default=0)
+
+    recent_rows = conn.execute(
+        'SELECT path, ip, timestamp FROM page_views ORDER BY timestamp DESC LIMIT 50'
+    ).fetchall()
+    recent_views = [{
+        'path': row['path'],
+        'ip': row['ip'],
+        'time': datetime.fromtimestamp(row['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+    } for row in recent_rows]
+
+    conn.close()
+
+    return render_template('admin.html',
+                         total_24h=total_24h,
+                         total_all=total_all,
+                         hourly=hourly,
+                         max_hourly=max_hourly,
+                         recent_views=recent_views)
+
+
 @app.route('/')
 @app.route('/browse/')
 @app.route('/browse/<path:subpath>')
 def index(subpath=''):
     """浏览目录"""
+    record_view('/' + subpath if subpath else '/')
     if USE_OSS:
         prefix = get_safe_oss_key(subpath)
         if prefix and not prefix.endswith('/'):
@@ -254,6 +432,7 @@ def index(subpath=''):
 @app.route('/play/<path:filepath>')
 def play(filepath):
     """播放音频/视频文件"""
+    record_view('/play/' + filepath)
     if USE_OSS:
         key = get_safe_oss_key(filepath)
         try:
@@ -317,6 +496,7 @@ def play(filepath):
 @app.route('/view/<path:filepath>')
 def view(filepath):
     """查看图片文件"""
+    record_view('/view/' + filepath)
     if USE_OSS:
         key = get_safe_oss_key(filepath)
         try:
