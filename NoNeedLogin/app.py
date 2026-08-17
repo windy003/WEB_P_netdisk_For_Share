@@ -54,13 +54,24 @@ def init_views_db():
     conn.close()
 
 
+def get_client_ip():
+    """获取真实客户端 IP。
+    通过 Cloudflare Tunnel 部署时，Flask 收到的 TCP 连接来自本地的 cloudflared
+    进程（remote_addr 恒为 127.0.0.1），真实 IP 由 Cloudflare 边缘节点写入
+    CF-Connecting-IP 请求头，因此优先读取该头，其次回退到 X-Forwarded-For。
+    """
+    return (request.headers.get('CF-Connecting-IP')
+            or request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+            or request.remote_addr)
+
+
 def record_view(path):
     """记录一次浏览，并顺便清理 7 天前的旧记录"""
     now = time.time()
     try:
         conn = sqlite3.connect(str(VIEWS_DB_PATH))
         conn.execute('INSERT INTO page_views (path, ip, timestamp) VALUES (?, ?, ?)',
-                     (path, request.remote_addr, now))
+                     (path, get_client_ip(), now))
         conn.execute('DELETE FROM page_views WHERE timestamp < ?', (now - 7 * 24 * 3600,))
         conn.commit()
         conn.close()
