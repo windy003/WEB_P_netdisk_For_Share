@@ -76,7 +76,7 @@ init_views_db()
 # 导致广告页展示期间 /admin 不可用。现在改为本进程常驻，内部用定时器切换展示内容，
 # /admin 无论当前显示哪个页面都始终可访问。
 
-SWITCH_PAGE_PATH = Path(__file__).resolve().parent.parent / 'switch' / 'index.html'
+SWITCH_PAGE_PATH = Path(__file__).resolve().parent / 'index.html'
 
 AD_STATE = {'active': False}
 AD_MODE_ENDPOINTS = {'index', 'play', 'view', 'stream', 'download'}
