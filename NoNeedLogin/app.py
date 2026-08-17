@@ -353,6 +353,9 @@ def admin():
     total_24h = conn.execute(
         'SELECT COUNT(*) c FROM page_views WHERE timestamp >= ?', (day_ago,)
     ).fetchone()['c']
+    unique_ip_24h = conn.execute(
+        'SELECT COUNT(DISTINCT ip) c FROM page_views WHERE timestamp >= ?', (day_ago,)
+    ).fetchone()['c']
     total_all = conn.execute('SELECT COUNT(*) c FROM page_views').fetchone()['c']
 
     # 最近 24 小时，按小时统计浏览量
@@ -383,6 +386,7 @@ def admin():
 
     return render_template('admin.html',
                          total_24h=total_24h,
+                         unique_ip_24h=unique_ip_24h,
                          total_all=total_all,
                          hourly=hourly,
                          max_hourly=max_hourly,
