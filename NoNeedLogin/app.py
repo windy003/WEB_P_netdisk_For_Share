@@ -1,8 +1,10 @@
 import os
 import re
+import json
 import sqlite3
 import time
 import threading
+import urllib.request
 from functools import wraps
 from datetime import datetime
 from pathlib import Path
@@ -80,6 +82,88 @@ def record_view(path):
 
 
 init_views_db()
+
+
+# ==================== IP 归属地查询 ====================
+# 使用 ip-api.com 免费批量接口（无需 Key），结果做内存缓存，避免刷新 /admin 时重复查询。
+
+_ip_location_cache = {}  # ip -> (location_str, cached_at)
+_IP_LOCATION_CACHE_TTL = 24 * 3600
+
+
+def _is_private_ip(ip):
+    """判断是否为内网/本地地址，这类地址无法查询归属地"""
+    if not ip:
+        return True
+    if ip in ('127.0.0.1', 'localhost', '::1'):
+        return True
+    parts = ip.split('.')
+    if len(parts) == 4:
+        try:
+            a, b = int(parts[0]), int(parts[1])
+        except ValueError:
+            return False
+        if a == 10 or a == 127:
+            return True
+        if a == 172 and 16 <= b <= 31:
+            return True
+        if a == 192 and b == 168:
+            return True
+    return False
+
+
+def lookup_ip_locations(ips):
+    """批量查询 IP 归属地（国家/省/市 + 运营商），返回 {ip: 归属地字符串}"""
+    result = {}
+    now = time.time()
+    to_query = []
+    for ip in ips:
+        if not ip or ip in result:
+            continue
+        if _is_private_ip(ip):
+            result[ip] = '内网/本地'
+            continue
+        cached = _ip_location_cache.get(ip)
+        if cached and now - cached[1] < _IP_LOCATION_CACHE_TTL:
+            result[ip] = cached[0]
+        else:
+            to_query.append(ip)
+
+    if to_query:
+        try:
+            payload = json.dumps([
+                {'query': ip, 'fields': 'status,country,regionName,city,isp,query'}
+                for ip in to_query[:100]
+            ]).encode('utf-8')
+            req = urllib.request.Request(
+                'http://ip-api.com/batch?lang=zh-CN',
+                data=payload,
+                headers={'Content-Type': 'application/json'}
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+            for item in data:
+                ip = item.get('query')
+                if not ip:
+                    continue
+                if item.get('status') == 'success':
+                    parts = [p for p in (item.get('country'), item.get('regionName'), item.get('city')) if p]
+                    dedup = []
+                    for p in parts:
+                        if not dedup or dedup[-1] != p:
+                            dedup.append(p)
+                    loc = ' '.join(dedup) or '未知'
+                    if item.get('isp'):
+                        loc = f"{loc} · {item['isp']}"
+                else:
+                    loc = '未知'
+                result[ip] = loc
+                _ip_location_cache[ip] = (loc, now)
+        except Exception:
+            for ip in to_query:
+                result.setdefault(ip, '查询失败')
+
+    return result
 
 
 # ==================== 广告页定时切换（内嵌，不再依赖外部进程切换） ====================
@@ -387,13 +471,15 @@ def admin():
     recent_rows = conn.execute(
         'SELECT path, ip, timestamp FROM page_views ORDER BY timestamp DESC LIMIT 50'
     ).fetchall()
+    conn.close()
+
+    # 归属地不在此处批量查询，避免一次刷新触发大量请求撞到 ip-api.com 的限流；
+    # 改为前端按需点击查询，见 /admin/ip_location 接口。
     recent_views = [{
         'path': row['path'],
         'ip': row['ip'],
         'time': datetime.fromtimestamp(row['timestamp']).strftime('%Y-%m-%d %H:%M:%S')
     } for row in recent_rows]
-
-    conn.close()
 
     return render_template('admin.html',
                          total_24h=total_24h,
@@ -402,6 +488,16 @@ def admin():
                          hourly=hourly,
                          max_hourly=max_hourly,
                          recent_views=recent_views)
+
+
+@app.route('/admin/ip_location')
+@admin_required
+def admin_ip_location():
+    """按需查询单个 IP 的归属地（管理页点击按钮时通过 AJAX 调用）"""
+    ip = request.args.get('ip', '').strip()
+    if not ip:
+        return {'location': ''}, 400
+    return {'location': lookup_ip_locations([ip]).get(ip, '未知')}
 
 
 @app.route('/')
